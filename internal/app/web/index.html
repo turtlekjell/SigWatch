@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{{.Title}}</title>
+  <link rel="stylesheet" href="/static/base.css">
+  <link rel="stylesheet" href="/themes/{{.Theme}}/theme.css">
+</head>
+<body>
+  <header class="topbar">
+    <div><strong id="app-title">{{.Title}}</strong><span class="tagline">local situational awareness</span></div>
+    <div class="topbar-right"><span id="overall-health" class="health">Starting…</span><label for="region-select">Region</label><select id="region-select"></select></div>
+  </header>
+  <main id="dashboard" class="dashboard" aria-live="polite"></main>
+  <noscript>SigWatch requires JavaScript for independent widget refresh.</noscript>
+  <script src="/static/app.js" defer></script>
+</body>
+</html>

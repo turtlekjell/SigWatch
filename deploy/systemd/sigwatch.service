@@ -1,0 +1,21 @@
+[Unit]
+Description=SigWatch local situational-awareness dashboard
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=sigwatch
+Group=sigwatch
+WorkingDirectory=/opt/sigwatch
+ExecStart=/opt/sigwatch/sigwatch -config /etc/sigwatch/config.yaml
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/sigwatch
+
+[Install]
+WantedBy=multi-user.target

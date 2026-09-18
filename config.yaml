@@ -1,0 +1,62 @@
+title: "SigWatch"
+listen: "127.0.0.1:8080"
+theme: "default"
+default_region: "prototype"
+freshness:
+  warning_after: "15m"
+  expire_after: "1h"
+regions:
+  prototype:
+    label: "Prototype"
+    widgets:
+      - id: "radar"
+        type: "image"
+        title: "Orange County Radar"
+        url: "https://radar.weather.gov/ridge/standard/KSOX_loop.gif"
+        attribution: "NOAA / National Weather Service"
+        refresh: "2m"
+        width: 2
+        height: 2
+        freshness:
+          warning_after: "10m"
+          expire_after: "30m"
+
+      - id: "weather"
+        type: "weather"
+        title: "Weather"
+        latitude: 33.6595
+        longitude: -117.9988
+        units: "imperial"
+        refresh: "10m"
+        width: 2
+        height: 1
+      - id: "local-clock"
+        type: "clock"
+        title: "Pacific Time"
+        timezone: "America/Los_Angeles"
+        width: 1
+        height: 1
+      - id: "utc"
+        type: "clock"
+        title: "UTC"
+        timezone: "UTC"
+        width: 1
+        height: 1
+      - id: "system"
+        type: "system"
+        title: "Host Status"
+        refresh: "10s"
+        width: 2
+        height: 1
+      - id: "links"
+        type: "links"
+        title: "Sources"
+        width: 2
+        height: 1
+        links:
+          - label: "NWS"
+            url: "https://www.weather.gov/"
+          - label: "USGS Earthquakes"
+            url: "https://earthquake.usgs.gov/"
+          - label: "CAL FIRE"
+            url: "https://www.fire.ca.gov/"
