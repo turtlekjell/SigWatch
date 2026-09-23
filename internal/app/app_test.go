@@ -39,12 +39,14 @@ func testConfig() *config.Config {
 		Freshness: config.Freshness{WarningAfter: config.Duration{Duration: 15 * time.Minute}, ExpireAfter: config.Duration{Duration: time.Hour}},
 		Regions: map[string]config.Region{"a": {Label: "A", Widgets: []config.Widget{
 			{ID: "c", Type: "clock", Title: "UTC", Timezone: "UTC", Width: 1, Height: 1, Refresh: config.Duration{Duration: time.Minute}},
+			{ID: "cam", Type: "camera", Title: "Cam", URL: "https://www.youtube.com/watch?v=M7lc1UVf-VE", Autoplay: boolPtr(true), Muted: boolPtr(true), Controls: boolPtr(true), Width: 2, Height: 2},
 			{ID: "w", Type: "weather", Title: "W", Latitude: &lat, Longitude: &long, Units: "imperial", Width: 1, Height: 1, Refresh: config.Duration{Duration: time.Minute}},
 		}}},
 	}
 }
 
 func testLogger() *slog.Logger { return slog.New(slog.NewTextHandler(io.Discard, nil)) }
+func boolPtr(v bool) *bool     { return &v }
 
 func TestDashboardDoesNotExposeWeatherCoordinatesOrURL(t *testing.T) {
 	s, err := New(testConfig(), testLogger(), WithCacheDir(t.TempDir()))
@@ -63,8 +65,28 @@ func TestSecurityHeaders(t *testing.T) {
 	s, _ := New(testConfig(), testLogger(), WithCacheDir(t.TempDir()))
 	rr := httptest.NewRecorder()
 	s.Handler().ServeHTTP(rr, httptest.NewRequest("GET", "/", nil))
-	if rr.Header().Get("Content-Security-Policy") == "" {
+	csp := rr.Header().Get("Content-Security-Policy")
+	if csp == "" {
 		t.Fatal("missing CSP")
+	}
+	if !strings.Contains(csp, "frame-src https://www.youtube.com") {
+		t.Fatalf("CSP does not permit the configured YouTube embed: %s", csp)
+	}
+}
+
+func TestDashboardExposesOnlySanitizedCameraEmbed(t *testing.T) {
+	s, err := New(testConfig(), testLogger(), WithCacheDir(t.TempDir()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rr := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rr, httptest.NewRequest("GET", "/api/dashboard", nil))
+	body := rr.Body.String()
+	if !strings.Contains(body, "https://www.youtube.com/embed/M7lc1UVf-VE") {
+		t.Fatalf("dashboard missing sanitized camera embed: %s", body)
+	}
+	if !strings.Contains(body, "https://www.youtube.com/watch?v=M7lc1UVf-VE") {
+		t.Fatalf("dashboard missing canonical camera source link: %s", body)
 	}
 }
 

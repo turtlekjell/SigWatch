@@ -47,6 +47,16 @@ regions:
         width: 2
         height: 2
 
+      - id: "live-camera-test"
+        type: "camera"
+        title: "Live Camera Test"
+        url: "https://www.youtube.com/live/SHfAtWHr9Ks"
+        autoplay: true
+        muted: true
+        controls: true
+        width: 2
+        height: 2
+
       - id: "weather"
         type: "weather"
         title: "Weather"

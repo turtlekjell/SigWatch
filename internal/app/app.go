@@ -11,6 +11,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -269,7 +270,7 @@ func securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Referrer-Policy", "no-referrer")
-		w.Header().Set("Content-Security-Policy", "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'")
+		w.Header().Set("Content-Security-Policy", "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; frame-src https://www.youtube.com; object-src 'none'; base-uri 'none'; frame-ancestors 'none'")
 		next.ServeHTTP(w, r)
 	})
 }
@@ -288,6 +289,8 @@ type safeWidget struct {
 	Width, Height             int
 	RefreshMS                 int64
 	Links                     []config.Link
+	EmbedURL                  string
+	SourceURL                 string
 }
 type safeRegion struct {
 	Label   string       `json:"label"`
@@ -304,9 +307,39 @@ func (w safeWidget) MarshalJSON() ([]byte, error) {
 		Height    int           `json:"height"`
 		RefreshMS int64         `json:"refresh_ms"`
 		Links     []config.Link `json:"links,omitempty"`
+		EmbedURL  string        `json:"embed_url,omitempty"`
+		SourceURL string        `json:"source_url,omitempty"`
 	}
-	return json.Marshal(alias{w.ID, w.Type, w.Title, w.Timezone, w.Width, w.Height, w.RefreshMS, w.Links})
+	return json.Marshal(alias{w.ID, w.Type, w.Title, w.Timezone, w.Width, w.Height, w.RefreshMS, w.Links, w.EmbedURL, w.SourceURL})
 }
+func cameraSourceURL(w config.Widget) string {
+	id, err := config.YouTubeVideoID(w.URL)
+	if err != nil {
+		return ""
+	}
+	return "https://www.youtube.com/watch?v=" + id
+}
+
+func cameraEmbedURL(w config.Widget) string {
+	id, err := config.YouTubeVideoID(w.URL)
+	if err != nil {
+		return ""
+	}
+	q := url.Values{}
+	q.Set("playsinline", "1")
+	q.Set("rel", "0")
+	if w.Autoplay != nil && *w.Autoplay {
+		q.Set("autoplay", "1")
+	}
+	if w.Muted != nil && *w.Muted {
+		q.Set("mute", "1")
+	}
+	if w.Controls != nil && !*w.Controls {
+		q.Set("controls", "0")
+	}
+	return "https://www.youtube.com/embed/" + id + "?" + q.Encode()
+}
+
 func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -316,7 +349,12 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	for rn, rr := range s.cfg.Regions {
 		sr := safeRegion{Label: rr.Label}
 		for _, x := range rr.Widgets {
-			sr.Widgets = append(sr.Widgets, safeWidget{ID: x.ID, Type: x.Type, Title: x.Title, Timezone: x.Timezone, Width: x.Width, Height: x.Height, RefreshMS: x.Refresh.Milliseconds(), Links: x.Links})
+			sw := safeWidget{ID: x.ID, Type: x.Type, Title: x.Title, Timezone: x.Timezone, Width: x.Width, Height: x.Height, RefreshMS: x.Refresh.Milliseconds(), Links: x.Links}
+			if x.Type == "camera" {
+				sw.EmbedURL = cameraEmbedURL(x)
+				sw.SourceURL = cameraSourceURL(x)
+			}
+			sr.Widgets = append(sr.Widgets, sw)
 		}
 		regions[rn] = sr
 	}

@@ -67,6 +67,8 @@ function render() {
       renderClock(element, widget);
     } else if (widget.type === 'links') {
       renderLinks(element, widget);
+    } else if (widget.type === 'camera') {
+      renderCamera(element, widget);
     } else {
       refreshWidget(element, widget, renderedRegion);
       const ms = Math.max(5000, widget.refresh_ms || 60000);
@@ -135,6 +137,21 @@ function renderLinks(element, widget) {
     `<a href="${esc(link.url)}" target="_blank" rel="noopener noreferrer">${esc(link.label)}</a>`
   ).join('') + '</div>';
   element.querySelector('[data-status]').textContent = 'Quick links';
+}
+
+function renderCamera(element, widget) {
+  const body = element.querySelector('[data-body]');
+  body.classList.add('no-pad');
+  if (!widget.embed_url) {
+    body.innerHTML = '<div class="empty">Camera configuration unavailable</div>';
+    element.querySelector('[data-status]').textContent = 'Camera unavailable';
+    return;
+  }
+  const sourceLink = widget.source_url
+    ? `<a class="camera-source" href="${esc(widget.source_url)}" target="_blank" rel="noopener noreferrer">Open source ↗</a>`
+    : '';
+  body.innerHTML = `<div class="camera-wrap"><iframe src="${esc(widget.embed_url)}" title="${esc(widget.title)}" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>${sourceLink}</div>`;
+  element.querySelector('[data-status]').textContent = 'Live · YouTube';
 }
 
 async function refreshWidget(element, widget, regionID) {

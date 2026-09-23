@@ -134,3 +134,49 @@ regions:
 		t.Fatalf("expected min_acres validation error, got %v", err)
 	}
 }
+
+func TestCameraYouTubeDefaultsAndURLForms(t *testing.T) {
+	p := write(t, `default_region: a
+regions:
+  a:
+    widgets:
+      - id: cam
+        type: camera
+        title: Test Camera
+        url: https://www.youtube.com/watch?v=M7lc1UVf-VE
+`)
+	c, err := Load(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := c.Regions["a"].Widgets[0]
+	if w.Autoplay == nil || !*w.Autoplay || w.Muted == nil || !*w.Muted || w.Controls == nil || !*w.Controls {
+		t.Fatalf("unexpected camera defaults: %#v", w)
+	}
+	forms := []string{
+		"https://www.youtube.com/watch?v=M7lc1UVf-VE",
+		"https://youtu.be/M7lc1UVf-VE",
+		"https://www.youtube.com/live/M7lc1UVf-VE",
+		"https://www.youtube.com/embed/M7lc1UVf-VE",
+	}
+	for _, raw := range forms {
+		id, err := YouTubeVideoID(raw)
+		if err != nil || id != "M7lc1UVf-VE" {
+			t.Fatalf("YouTubeVideoID(%q) = %q, %v", raw, id, err)
+		}
+	}
+}
+
+func TestCameraRejectsNonYouTubeURL(t *testing.T) {
+	p := write(t, `default_region: a
+regions:
+  a:
+    widgets:
+      - id: cam
+        type: camera
+        url: https://example.com/camera
+`)
+	if _, err := Load(p); err == nil || !strings.Contains(err.Error(), "youtube.com") {
+		t.Fatalf("expected YouTube validation error, got %v", err)
+	}
+}

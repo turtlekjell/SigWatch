@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -57,6 +58,9 @@ type Widget struct {
 	MaxEvents    int
 	NamedOnly    bool
 	MinAcres     float64
+	Autoplay     *bool
+	Muted        *bool
+	Controls     *bool
 	Freshness    *Freshness
 }
 
@@ -164,7 +168,7 @@ func decodeRegion(name string, m map[string]any) (Region, error) {
 }
 
 func decodeWidget(path string, m map[string]any) (Widget, error) {
-	if err := unknownKeys(path, m, set("id", "type", "title", "url", "attribution", "refresh", "width", "height", "timezone", "links", "latitude", "longitude", "units", "max_radius_km", "min_magnitude", "hours", "max_events", "named_only", "min_acres", "freshness")); err != nil {
+	if err := unknownKeys(path, m, set("id", "type", "title", "url", "attribution", "refresh", "width", "height", "timezone", "links", "latitude", "longitude", "units", "max_radius_km", "min_magnitude", "hours", "max_events", "named_only", "min_acres", "autoplay", "muted", "controls", "freshness")); err != nil {
 		return Widget{}, err
 	}
 	w := Widget{}
@@ -243,6 +247,15 @@ func decodeWidget(path string, m map[string]any) (Widget, error) {
 		w.MinAcres, err = floatValue(raw)
 		if err != nil {
 			return w, fieldErr(path+".min_acres", err)
+		}
+	}
+	for key, target := range map[string]**bool{"autoplay": &w.Autoplay, "muted": &w.Muted, "controls": &w.Controls} {
+		if raw, ok := m[key]; ok && raw != nil {
+			v, e := boolValue(raw)
+			if e != nil {
+				return w, fieldErr(path+"."+key, e)
+			}
+			*target = &v
 		}
 	}
 	if raw, ok := m["freshness"]; ok && raw != nil {
@@ -377,6 +390,20 @@ func defaults(c *Config) {
 					w.MaxEvents = 8
 				}
 			}
+			if w.Type == "camera" {
+				if w.Autoplay == nil {
+					v := true
+					w.Autoplay = &v
+				}
+				if w.Muted == nil {
+					v := true
+					w.Muted = &v
+				}
+				if w.Controls == nil {
+					v := true
+					w.Controls = &v
+				}
+			}
 			if w.Freshness != nil {
 				if w.Freshness.WarningAfter.Duration == 0 {
 					w.Freshness.WarningAfter = c.Freshness.WarningAfter
@@ -509,6 +536,10 @@ func (c *Config) Validate() error {
 				if w.MinAcres < 0 {
 					problems = append(problems, p+".min_acres: must be zero or greater")
 				}
+			case "camera":
+				if _, err := YouTubeVideoID(w.URL); err != nil {
+					problems = append(problems, p+".url: "+err.Error())
+				}
 			case "system":
 			default:
 				problems = append(problems, p+".type: unsupported type "+w.Type)
@@ -522,6 +553,32 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("configuration invalid:\n - %s", strings.Join(problems, "\n - "))
 	}
 	return nil
+}
+
+func YouTubeVideoID(raw string) (string, error) {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || u.Scheme != "https" || u.Hostname() == "" {
+		return "", errors.New("must be an HTTPS YouTube URL")
+	}
+	host := strings.ToLower(u.Hostname())
+	var id string
+	switch host {
+	case "youtube.com", "www.youtube.com", "m.youtube.com":
+		parts := strings.Split(strings.Trim(u.Path, "/"), "/")
+		if u.Path == "/watch" {
+			id = u.Query().Get("v")
+		} else if len(parts) == 2 && (parts[0] == "live" || parts[0] == "embed" || parts[0] == "shorts") {
+			id = parts[1]
+		}
+	case "youtu.be", "www.youtu.be":
+		id = strings.Trim(u.Path, "/")
+	default:
+		return "", errors.New("camera currently supports youtube.com or youtu.be URLs")
+	}
+	if ok, _ := regexp.MatchString(`^[A-Za-z0-9_-]{11}$`, id); !ok {
+		return "", errors.New("could not find a valid YouTube video ID in URL")
+	}
+	return id, nil
 }
 
 func parseDurationValue(v any) (Duration, error) {

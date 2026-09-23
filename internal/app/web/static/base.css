@@ -47,3 +47,10 @@
 .fire-detail span{color:var(--muted);font-size:.76rem}
 .fire-detail .fire-id{font-size:.7rem;letter-spacing:.02em}
 .status-line a{color:inherit}
+
+
+/* Live camera / YouTube embed widget. */
+.camera-wrap{position:relative;width:100%;height:100%;min-height:220px;background:#000;overflow:hidden}
+.camera-wrap iframe{display:block;width:100%;height:100%;min-height:220px;border:0;background:#000}
+.camera-source{position:absolute;right:8px;bottom:8px;padding:4px 7px;border-radius:6px;background:rgba(0,0,0,.72);color:#fff;text-decoration:none;font-size:.7rem;z-index:1}
+.camera-source:hover{text-decoration:underline}
