@@ -38,20 +38,26 @@ type Link struct {
 }
 
 type Widget struct {
-	ID          string
-	Type        string
-	Title       string
-	URL         string
-	Attribution string
-	Refresh     Duration
-	Width       int
-	Height      int
-	Timezone    string
-	Links       []Link
-	Latitude    *float64
-	Longitude   *float64
-	Units       string
-	Freshness   *Freshness
+	ID           string
+	Type         string
+	Title        string
+	URL          string
+	Attribution  string
+	Refresh      Duration
+	Width        int
+	Height       int
+	Timezone     string
+	Links        []Link
+	Latitude     *float64
+	Longitude    *float64
+	Units        string
+	MaxRadiusKM  float64
+	MinMagnitude *float64
+	Hours        int
+	MaxEvents    int
+	NamedOnly    bool
+	MinAcres     float64
+	Freshness    *Freshness
 }
 
 func Load(path string) (*Config, error) {
@@ -158,7 +164,7 @@ func decodeRegion(name string, m map[string]any) (Region, error) {
 }
 
 func decodeWidget(path string, m map[string]any) (Widget, error) {
-	if err := unknownKeys(path, m, set("id", "type", "title", "url", "attribution", "refresh", "width", "height", "timezone", "links", "latitude", "longitude", "units", "freshness")); err != nil {
+	if err := unknownKeys(path, m, set("id", "type", "title", "url", "attribution", "refresh", "width", "height", "timezone", "links", "latitude", "longitude", "units", "max_radius_km", "min_magnitude", "hours", "max_events", "named_only", "min_acres", "freshness")); err != nil {
 		return Widget{}, err
 	}
 	w := Widget{}
@@ -200,6 +206,44 @@ func decodeWidget(path string, m map[string]any) (Widget, error) {
 			return w, fieldErr(path+".longitude", e)
 		}
 		w.Longitude = &f
+	}
+
+	if raw, ok := m["max_radius_km"]; ok && raw != nil {
+		w.MaxRadiusKM, err = floatValue(raw)
+		if err != nil {
+			return w, fieldErr(path+".max_radius_km", err)
+		}
+	}
+	if raw, ok := m["min_magnitude"]; ok && raw != nil {
+		f, e := floatValue(raw)
+		if e != nil {
+			return w, fieldErr(path+".min_magnitude", e)
+		}
+		w.MinMagnitude = &f
+	}
+	if raw, ok := m["hours"]; ok && raw != nil {
+		w.Hours, err = intValue(raw)
+		if err != nil {
+			return w, fieldErr(path+".hours", err)
+		}
+	}
+	if raw, ok := m["max_events"]; ok && raw != nil {
+		w.MaxEvents, err = intValue(raw)
+		if err != nil {
+			return w, fieldErr(path+".max_events", err)
+		}
+	}
+	if raw, ok := m["named_only"]; ok && raw != nil {
+		w.NamedOnly, err = boolValue(raw)
+		if err != nil {
+			return w, fieldErr(path+".named_only", err)
+		}
+	}
+	if raw, ok := m["min_acres"]; ok && raw != nil {
+		w.MinAcres, err = floatValue(raw)
+		if err != nil {
+			return w, fieldErr(path+".min_acres", err)
+		}
 	}
 	if raw, ok := m["freshness"]; ok && raw != nil {
 		fm, ok := raw.(map[string]any)
@@ -297,6 +341,10 @@ func defaults(c *Config) {
 					w.Refresh.Duration = 2 * time.Minute
 				case "weather":
 					w.Refresh.Duration = 10 * time.Minute
+				case "earthquake":
+					w.Refresh.Duration = 2 * time.Minute
+				case "fire":
+					w.Refresh.Duration = 5 * time.Minute
 				case "system":
 					w.Refresh.Duration = 10 * time.Second
 				default:
@@ -305,6 +353,29 @@ func defaults(c *Config) {
 			}
 			if w.Units == "" {
 				w.Units = "imperial"
+			}
+			if w.Type == "earthquake" {
+				if w.MaxRadiusKM == 0 {
+					w.MaxRadiusKM = 300
+				}
+				if w.MinMagnitude == nil {
+					v := 1.5
+					w.MinMagnitude = &v
+				}
+				if w.Hours == 0 {
+					w.Hours = 24
+				}
+				if w.MaxEvents == 0 {
+					w.MaxEvents = 8
+				}
+			}
+			if w.Type == "fire" {
+				if w.MaxRadiusKM == 0 {
+					w.MaxRadiusKM = 300
+				}
+				if w.MaxEvents == 0 {
+					w.MaxEvents = 8
+				}
 			}
 			if w.Freshness != nil {
 				if w.Freshness.WarningAfter.Duration == 0 {
@@ -405,6 +476,39 @@ func (c *Config) Validate() error {
 				if w.Units != "imperial" && w.Units != "metric" {
 					problems = append(problems, p+".units: must be imperial or metric")
 				}
+			case "earthquake":
+				if w.Latitude == nil || w.Longitude == nil {
+					problems = append(problems, p+": earthquake requires latitude and longitude")
+				} else if *w.Latitude < -90 || *w.Latitude > 90 || *w.Longitude < -180 || *w.Longitude > 180 {
+					problems = append(problems, p+": latitude/longitude out of range")
+				}
+				if w.MaxRadiusKM <= 0 || w.MaxRadiusKM > 20001.6 {
+					problems = append(problems, p+".max_radius_km: must be greater than 0 and no more than 20001.6")
+				}
+				if w.MinMagnitude == nil {
+					problems = append(problems, p+".min_magnitude: is required after defaults")
+				}
+				if w.Hours < 1 || w.Hours > 24 {
+					problems = append(problems, p+".hours: must be between 1 and 24")
+				}
+				if w.MaxEvents < 1 || w.MaxEvents > 50 {
+					problems = append(problems, p+".max_events: must be between 1 and 50")
+				}
+			case "fire":
+				if w.Latitude == nil || w.Longitude == nil {
+					problems = append(problems, p+": fire requires latitude and longitude")
+				} else if *w.Latitude < -90 || *w.Latitude > 90 || *w.Longitude < -180 || *w.Longitude > 180 {
+					problems = append(problems, p+": latitude/longitude out of range")
+				}
+				if w.MaxRadiusKM <= 0 || w.MaxRadiusKM > 20001.6 {
+					problems = append(problems, p+".max_radius_km: must be greater than 0 and no more than 20001.6")
+				}
+				if w.MaxEvents < 1 || w.MaxEvents > 50 {
+					problems = append(problems, p+".max_events: must be between 1 and 50")
+				}
+				if w.MinAcres < 0 {
+					problems = append(problems, p+".min_acres: must be zero or greater")
+				}
 			case "system":
 			default:
 				problems = append(problems, p+".type: unsupported type "+w.Type)
@@ -464,6 +568,13 @@ func floatValue(v any) (float64, error) {
 		return x, nil
 	}
 	return 0, errors.New("must be a number")
+}
+func boolValue(v any) (bool, error) {
+	b, ok := v.(bool)
+	if !ok {
+		return false, errors.New("must be true or false")
+	}
+	return b, nil
 }
 func fieldErr(path string, err error) error { return fmt.Errorf("%s: %w", path, err) }
 func set(keys ...string) map[string]struct{} {

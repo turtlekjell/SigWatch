@@ -189,3 +189,32 @@ func TestPersistentCacheIgnoredWhenWidgetSourceChanges(t *testing.T) {
 		t.Fatal("cache from previous widget source/configuration was reused")
 	}
 }
+
+func TestRefreshRegionEndpointRequiresActionHeader(t *testing.T) {
+	s, _ := New(testConfig(), testLogger(), WithCacheDir(t.TempDir()))
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/region/a/refresh", nil)
+	s.Handler().ServeHTTP(rr, req)
+	if rr.Code != 403 {
+		t.Fatalf("status = %d, want 403", rr.Code)
+	}
+}
+
+func TestRefreshRegionEndpointRefreshesExternalWidgets(t *testing.T) {
+	s, _ := New(testConfig(), testLogger(), WithCacheDir(t.TempDir()))
+	f := &fakeProvider{results: []provider.Result{{Data: map[string]any{"temperature": 73.0}, Source: "manual-test"}}}
+	s.provider = f
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/region/a/refresh", nil)
+	req.Header.Set("X-SigWatch-Action", "refresh-region")
+	s.Handler().ServeHTTP(rr, req)
+	if rr.Code != 200 {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+	if f.calls != 1 {
+		t.Fatalf("provider calls = %d, want 1", f.calls)
+	}
+	if s.states[key("a", "w")].LastSuccess.IsZero() {
+		t.Fatal("manual refresh did not update widget state")
+	}
+}

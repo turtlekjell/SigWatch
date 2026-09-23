@@ -21,6 +21,32 @@ regions:
           warning_after: "10m"
           expire_after: "30m"
 
+      - id: "socal-earthquakes"
+        type: "earthquake"
+        title: "Southern California Earthquakes"
+        latitude: 34.05
+        longitude: -118.25
+        max_radius_km: 300
+        min_magnitude: 1.5
+        hours: 24
+        max_events: 8
+        refresh: "2m"
+        width: 2
+        height: 2
+
+      - id: "socal-fires"
+        type: "fire"
+        title: "Southern California Wildfires"
+        latitude: 33.66
+        longitude: -117.99
+        max_radius_km: 4300
+        max_events: 8
+        named_only: true
+        min_acres: 1
+        refresh: "5m"
+        width: 2
+        height: 2
+
       - id: "weather"
         type: "weather"
         title: "Weather"

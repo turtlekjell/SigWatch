@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -44,5 +45,147 @@ func TestImageRejectsNonImage(t *testing.T) {
 	_, err := h.Fetch(context.Background(), config.Widget{Type: "image", URL: ts.URL})
 	if err == nil || !strings.Contains(err.Error(), "not an image") {
 		t.Fatalf("expected image validation error, got %v", err)
+	}
+}
+
+func TestEarthquakeFetch(t *testing.T) {
+	now := time.Now().UTC()
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(fmt.Sprintf(`{
+  "metadata":{"generated":%d,"count":3},
+  "features":[
+    {"id":"ci123","properties":{"mag":3.2,"place":"8 km NE of Testville, CA","time":%d,"updated":%d,"url":"https://earthquake.usgs.gov/earthquakes/eventpage/ci123","status":"reviewed","type":"earthquake"},"geometry":{"coordinates":[-117.9,33.8,7.2]}},
+    {"id":"far","properties":{"mag":5.0,"place":"Far Away","time":%d,"updated":%d,"url":"https://earthquake.usgs.gov/earthquakes/eventpage/far","status":"reviewed","type":"earthquake"},"geometry":{"coordinates":[-122.4,37.8,4.0]}},
+    {"id":"small","properties":{"mag":0.8,"place":"Too Small","time":%d,"updated":%d,"url":"https://earthquake.usgs.gov/earthquakes/eventpage/small","status":"automatic","type":"earthquake"},"geometry":{"coordinates":[-118.1,34.0,2.0]}}
+  ]
+}`, now.UnixMilli(), now.Add(-10*time.Minute).UnixMilli(), now.UnixMilli(), now.Add(-5*time.Minute).UnixMilli(), now.UnixMilli(), now.Add(-3*time.Minute).UnixMilli(), now.UnixMilli())))
+	}))
+	defer ts.Close()
+
+	lat, lon, minMag := 34.05, -118.25, 1.5
+	p := NewHTTP(time.Second)
+	p.earthquakeFeedOverride = ts.URL
+	got, err := p.Fetch(context.Background(), config.Widget{
+		Type: "earthquake", Latitude: &lat, Longitude: &lon, MaxRadiusKM: 300,
+		MinMagnitude: &minMag, Hours: 24, MaxEvents: 8,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Source != "USGS Earthquake Hazards Program" {
+		t.Fatalf("source = %q", got.Source)
+	}
+	data, ok := got.Data.(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected data type %T", got.Data)
+	}
+	events, ok := data["events"].([]map[string]any)
+	if !ok || len(events) != 1 {
+		t.Fatalf("events = %#v", data["events"])
+	}
+	if events[0]["place"] != "8 km NE of Testville, CA" || events[0]["depth_km"] != 7.2 {
+		t.Fatalf("unexpected event: %#v", events[0])
+	}
+}
+
+func TestFireFetch(t *testing.T) {
+	now := time.Now().UTC()
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.URL.Query().Get("geometryType"); got != "esriGeometryPoint" {
+			t.Errorf("geometryType = %q", got)
+		}
+		if got := r.URL.Query().Get("units"); got != "esriSRUnit_Kilometer" {
+			t.Errorf("units = %q", got)
+		}
+		if !strings.Contains(r.URL.Query().Get("where"), "IncidentTypeCategory") {
+			t.Errorf("where = %q", r.URL.Query().Get("where"))
+		}
+		outFields := r.URL.Query().Get("outFields")
+		if !strings.Contains(outFields, "IncidentShortDescription") || !strings.Contains(outFields, "LocalIncidentIdentifier") {
+			t.Errorf("outFields missing cleanup fields: %q", outFields)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(fmt.Sprintf(`{
+  "features":[
+    {"attributes":{"IncidentName":"Test Fire","IncidentShortDescription":"","LocalIncidentIdentifier":"T-1","IncidentSize":125.5,"PercentContained":40,"POOCity":"Testville","POOCounty":"Orange","POOState":"US-CA","FireDiscoveryDateTime":%d,"ModifiedOnDateTime_dt":%d,"UniqueFireIdentifier":"2026-TEST","IrwinID":"irwin-test","IncidentTypeCategory":"WF"},"geometry":{"x":-117.95,"y":33.72}},
+    {"attributes":{"IncidentName":"LAC-342856","IncidentShortDescription":"Brush fire near Test Canyon","LocalIncidentIdentifier":"342856","InitialResponseAcres":12,"PercentContained":20,"POOCity":"Canyon","POOCounty":"Los Angeles","POOState":"US-CA","ModifiedOnDateTime_dt":%d,"UniqueFireIdentifier":"2026-DESC","IncidentTypeCategory":"WF"},"geometry":{"x":-118.05,"y":33.80}},
+    {"attributes":{"IncidentName":"LAC-341314","IncidentShortDescription":"","LocalIncidentIdentifier":"341314","IncidentSize":1,"PercentContained":0,"POOCity":"Smallville","POOCounty":"Los Angeles","POOState":"US-CA","ModifiedOnDateTime_dt":%d,"UniqueFireIdentifier":"2026-SMALL","IncidentTypeCategory":"WF"},"geometry":{"x":-118.02,"y":33.78}},
+    {"attributes":{"IncidentName":"Far Fire","IncidentSize":900,"PercentContained":5,"POOCity":"Farville","POOCounty":"Far","POOState":"US-CA","ModifiedOnDateTime_dt":%d,"UniqueFireIdentifier":"2026-FAR","IncidentTypeCategory":"WF"},"geometry":{"x":-122.4,"y":37.8}}
+  ]
+}`, now.Add(-2*time.Hour).UnixMilli(), now.Add(-5*time.Minute).UnixMilli(), now.Add(-10*time.Minute).UnixMilli(), now.Add(-15*time.Minute).UnixMilli(), now.UnixMilli())))
+	}))
+	defer ts.Close()
+
+	lat, lon := 33.66, -117.99
+	p := NewHTTP(time.Second)
+	p.fireFeedOverride = ts.URL
+	got, err := p.Fetch(context.Background(), config.Widget{
+		Type: "fire", Latitude: &lat, Longitude: &lon, MaxRadiusKM: 160, MaxEvents: 8, MinAcres: 5,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Source != "NIFC WFIGS current wildfire incidents" {
+		t.Fatalf("source = %q", got.Source)
+	}
+	data, ok := got.Data.(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected data type %T", got.Data)
+	}
+	fires, ok := data["incidents"].([]map[string]any)
+	if !ok || len(fires) != 2 {
+		t.Fatalf("incidents = %#v", data["incidents"])
+	}
+	byName := map[string]map[string]any{}
+	for _, fire := range fires {
+		byName[fire["name"].(string)] = fire
+	}
+	testFire := byName["Test Fire"]
+	if testFire == nil || testFire["acres"] != 125.5 || testFire["percent_contained"] != 40.0 {
+		t.Fatalf("unexpected named fire: %#v", testFire)
+	}
+	if url, _ := testFire["details_url"].(string); !strings.Contains(url, "inciweb.wildfire.gov") || !strings.Contains(url, "Test+Fire") {
+		t.Fatalf("unexpected details url: %q", url)
+	}
+	described := byName["Brush fire near Test Canyon"]
+	if described == nil || described["incident_id"] != "LAC-342856" || described["acres"] != 12.0 || described["named"] != true {
+		t.Fatalf("unexpected described fire: %#v", described)
+	}
+	if _, exists := byName["LAC-341314"]; exists {
+		t.Fatal("small code-only fire should have been filtered by min_acres")
+	}
+	for _, fire := range fires {
+		if d, ok := fire["distance_km"].(float64); !ok || d <= 0 || d >= 160 {
+			t.Fatalf("unexpected distance: %#v", fire["distance_km"])
+		}
+	}
+}
+
+func TestFireNamedOnlyDropsCodeOnlyIncident(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+  "features":[
+    {"attributes":{"IncidentName":"LAC-342856","IncidentShortDescription":"","LocalIncidentIdentifier":"342856","IncidentSize":25,"IncidentTypeCategory":"WF"},"geometry":{"x":-117.95,"y":33.72}},
+    {"attributes":{"IncidentName":"LAC-999999","IncidentShortDescription":"Canyon brush fire","LocalIncidentIdentifier":"999999","IncidentSize":30,"IncidentTypeCategory":"WF"},"geometry":{"x":-117.96,"y":33.73}}
+  ]
+}`))
+	}))
+	defer ts.Close()
+
+	lat, lon := 33.66, -117.99
+	p := NewHTTP(time.Second)
+	p.fireFeedOverride = ts.URL
+	got, err := p.Fetch(context.Background(), config.Widget{
+		Type: "fire", Latitude: &lat, Longitude: &lon, MaxRadiusKM: 160, MaxEvents: 8, NamedOnly: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	data := got.Data.(map[string]any)
+	fires := data["incidents"].([]map[string]any)
+	if len(fires) != 1 || fires[0]["name"] != "Canyon brush fire" {
+		t.Fatalf("unexpected named-only fires: %#v", fires)
 	}
 }

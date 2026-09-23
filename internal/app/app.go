@@ -26,6 +26,7 @@ import (
 var assets embed.FS
 
 type widgetState struct {
+	refreshMu   sync.Mutex
 	mu          sync.RWMutex
 	LastSuccess time.Time
 	LastAttempt time.Time
@@ -111,17 +112,27 @@ func New(cfg *config.Config, logger *slog.Logger, opts ...Option) (*Server, erro
 }
 
 func key(region, id string) string { return region + "/" + id }
-func isExternal(t string) bool     { return t == "image" || t == "weather" || t == "system" }
-func cacheable(t string) bool      { return t == "image" || t == "weather" }
+func isExternal(t string) bool {
+	return t == "image" || t == "weather" || t == "earthquake" || t == "fire" || t == "system"
+}
+func cacheable(t string) bool {
+	return t == "image" || t == "weather" || t == "earthquake" || t == "fire"
+}
 
 func widgetFingerprint(w config.Widget) string {
 	payload := struct {
-		Type      string   `json:"type"`
-		URL       string   `json:"url,omitempty"`
-		Latitude  *float64 `json:"latitude,omitempty"`
-		Longitude *float64 `json:"longitude,omitempty"`
-		Units     string   `json:"units,omitempty"`
-	}{w.Type, w.URL, w.Latitude, w.Longitude, w.Units}
+		Type         string   `json:"type"`
+		URL          string   `json:"url,omitempty"`
+		Latitude     *float64 `json:"latitude,omitempty"`
+		Longitude    *float64 `json:"longitude,omitempty"`
+		Units        string   `json:"units,omitempty"`
+		MaxRadiusKM  float64  `json:"max_radius_km,omitempty"`
+		MinMagnitude *float64 `json:"min_magnitude,omitempty"`
+		Hours        int      `json:"hours,omitempty"`
+		MaxEvents    int      `json:"max_events,omitempty"`
+		NamedOnly    bool     `json:"named_only,omitempty"`
+		MinAcres     float64  `json:"min_acres,omitempty"`
+	}{w.Type, w.URL, w.Latitude, w.Longitude, w.Units, w.MaxRadiusKM, w.MinMagnitude, w.Hours, w.MaxEvents, w.NamedOnly, w.MinAcres}
 	b, _ := json.Marshal(payload)
 	h := sha256.Sum256(b)
 	return hex.EncodeToString(h[:16])
@@ -178,6 +189,8 @@ func (s *Server) refreshLoop(ctx context.Context, region string, w config.Widget
 }
 func (s *Server) refreshOne(ctx context.Context, region string, w config.Widget) {
 	st := s.states[key(region, w.ID)]
+	st.refreshMu.Lock()
+	defer st.refreshMu.Unlock()
 	attempt := time.Now()
 	result, err := s.provider.Fetch(ctx, w)
 	st.mu.Lock()
@@ -247,6 +260,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/", s.handleIndex)
 	mux.HandleFunc("/api/dashboard", s.handleDashboard)
 	mux.HandleFunc("/api/widget/", s.handleWidget)
+	mux.HandleFunc("/api/region/", s.handleRegionAction)
 	mux.HandleFunc("/healthz", s.handleHealth)
 	return securityHeaders(mux)
 }
@@ -387,6 +401,47 @@ func writeJSON(w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(v)
 }
+
+func (s *Server) handleRegionAction(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if r.Header.Get("X-SigWatch-Action") != "refresh-region" {
+		http.Error(w, "missing refresh action header", http.StatusForbidden)
+		return
+	}
+	rest := strings.Trim(strings.TrimPrefix(r.URL.Path, "/api/region/"), "/")
+	parts := strings.Split(rest, "/")
+	if len(parts) != 2 || parts[1] != "refresh" {
+		http.NotFound(w, r)
+		return
+	}
+	regionName := parts[0]
+	region, ok := s.cfg.Regions[regionName]
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+
+	var wg sync.WaitGroup
+	count := 0
+	for _, widget := range region.Widgets {
+		if !isExternal(widget.Type) {
+			continue
+		}
+		count++
+		widget := widget
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			s.refreshOne(r.Context(), regionName, widget)
+		}()
+	}
+	wg.Wait()
+	writeJSON(w, map[string]any{"status": "ok", "region": regionName, "refreshed": count})
+}
+
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"status": "ok", "uptime_seconds": int64(time.Since(s.started).Seconds())})
 }

@@ -10,7 +10,7 @@
 <body>
   <header class="topbar">
     <div><strong id="app-title">{{.Title}}</strong><span class="tagline">local situational awareness</span></div>
-    <div class="topbar-right"><span id="overall-health" class="health">Starting…</span><label for="region-select">Region</label><select id="region-select"></select></div>
+    <div class="topbar-right"><span id="overall-health" class="health">Starting…</span><button id="refresh-region" class="refresh-button" type="button" title="Refresh external feeds in the current region">↻ Refresh</button><label for="region-select">Region</label><select id="region-select"></select></div>
   </header>
   <main id="dashboard" class="dashboard" aria-live="polite"></main>
   <noscript>SigWatch requires JavaScript for independent widget refresh.</noscript>

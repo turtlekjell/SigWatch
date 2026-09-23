@@ -20,3 +20,30 @@
 
 @media(max-width:900px){.dashboard.maps-grid{height:auto;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:none;grid-auto-rows:minmax(220px,auto)}}
 @media(max-width:600px){.dashboard.maps-grid{grid-template-columns:1fr;grid-auto-rows:minmax(240px,auto)}}
+
+/* Manual region refresh. */
+.refresh-button{padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font:inherit;font-size:.82rem;cursor:pointer}
+.refresh-button:hover{border-color:var(--accent)}
+.refresh-button:disabled{cursor:progress;opacity:.65}
+
+/* Structured earthquake widget. */
+.quake-list{display:flex;flex-direction:column;gap:7px}
+.quake-row{display:grid;grid-template-columns:58px minmax(0,1fr);align-items:center;gap:9px;padding:8px;border-radius:8px;background:var(--surface)}
+.quake-mag{font-size:1.05rem;font-weight:800;font-variant-numeric:tabular-nums}
+.quake-detail{display:flex;min-width:0;flex-direction:column;gap:2px}
+.quake-detail strong{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.88rem}
+.quake-detail a{color:var(--text);text-decoration:none}
+.quake-detail a:hover{text-decoration:underline}
+.quake-detail span{color:var(--muted);font-size:.76rem}
+
+/* Structured wildfire widget. */
+.fire-list{display:flex;flex-direction:column;gap:7px}
+.fire-row{display:grid;grid-template-columns:28px minmax(0,1fr);align-items:center;gap:9px;padding:8px;border-radius:8px;background:var(--surface)}
+.fire-marker{font-size:1rem;font-weight:900;text-align:center}
+.fire-detail{display:flex;min-width:0;flex-direction:column;gap:2px}
+.fire-detail strong{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.88rem}
+.fire-detail strong a{color:var(--text);text-decoration:none}
+.fire-detail strong a:hover{text-decoration:underline}
+.fire-detail span{color:var(--muted);font-size:.76rem}
+.fire-detail .fire-id{font-size:.7rem;letter-spacing:.02em}
+.status-line a{color:inherit}
