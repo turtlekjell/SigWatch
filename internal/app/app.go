@@ -11,10 +11,12 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
 
+	"sigwatch/internal/cache"
 	"sigwatch/internal/config"
 	"sigwatch/internal/freshness"
 	"sigwatch/internal/provider"
@@ -33,18 +35,36 @@ type widgetState struct {
 	ContentType string
 	Source      string
 	Version     string
+	LastPersist time.Time
 }
 
 type Server struct {
 	cfg      *config.Config
 	logger   *slog.Logger
 	provider provider.Provider
+	cache    *cache.Store
 	states   map[string]*widgetState
 	started  time.Time
 	tmpl     *template.Template
 }
 
-func New(cfg *config.Config, logger *slog.Logger) (*Server, error) {
+type options struct {
+	cacheDir string
+}
+
+type Option func(*options)
+
+// WithCacheDir overrides the platform-default persistent cache directory.
+// An empty directory leaves default cache-directory selection in place.
+func WithCacheDir(dir string) Option {
+	return func(o *options) {
+		if dir != "" {
+			o.cacheDir = dir
+		}
+	}
+}
+
+func New(cfg *config.Config, logger *slog.Logger, opts ...Option) (*Server, error) {
 	if _, err := fs.Stat(assets, "web/themes/"+cfg.Theme+"/theme.css"); err != nil {
 		return nil, fmt.Errorf("theme %q is not installed: %w", cfg.Theme, err)
 	}
@@ -52,11 +72,38 @@ func New(cfg *config.Config, logger *slog.Logger) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Server{cfg: cfg, logger: logger, provider: provider.NewHTTP(12 * time.Second), states: map[string]*widgetState{}, started: time.Now(), tmpl: t}
+
+	o := options{}
+	for _, opt := range opts {
+		opt(&o)
+	}
+	cacheDir := o.cacheDir
+	if cacheDir == "" {
+		cacheDir, err = cache.DefaultDir()
+		if err != nil {
+			logger.Warn("persistent cache disabled", "error", err)
+		}
+	}
+	var diskCache *cache.Store
+	if cacheDir != "" {
+		diskCache, err = cache.New(cacheDir)
+		if err != nil {
+			logger.Warn("persistent cache disabled", "dir", cacheDir, "error", err)
+		} else {
+			logger.Info("persistent cache enabled", "dir", cacheDir)
+		}
+	}
+
+	s := &Server{cfg: cfg, logger: logger, provider: provider.NewHTTP(12 * time.Second), cache: diskCache, states: map[string]*widgetState{}, started: time.Now(), tmpl: t}
 	for rn, r := range cfg.Regions {
 		for _, w := range r.Widgets {
-			if isExternal(w.Type) {
-				s.states[key(rn, w.ID)] = &widgetState{}
+			if !isExternal(w.Type) {
+				continue
+			}
+			st := &widgetState{}
+			s.states[key(rn, w.ID)] = st
+			if cacheable(w.Type) {
+				s.loadCachedState(rn, w, st)
 			}
 		}
 	}
@@ -65,6 +112,45 @@ func New(cfg *config.Config, logger *slog.Logger) (*Server, error) {
 
 func key(region, id string) string { return region + "/" + id }
 func isExternal(t string) bool     { return t == "image" || t == "weather" || t == "system" }
+func cacheable(t string) bool      { return t == "image" || t == "weather" }
+
+func widgetFingerprint(w config.Widget) string {
+	payload := struct {
+		Type      string   `json:"type"`
+		URL       string   `json:"url,omitempty"`
+		Latitude  *float64 `json:"latitude,omitempty"`
+		Longitude *float64 `json:"longitude,omitempty"`
+		Units     string   `json:"units,omitempty"`
+	}{w.Type, w.URL, w.Latitude, w.Longitude, w.Units}
+	b, _ := json.Marshal(payload)
+	h := sha256.Sum256(b)
+	return hex.EncodeToString(h[:16])
+}
+
+func (s *Server) loadCachedState(region string, w config.Widget, st *widgetState) {
+	if s.cache == nil {
+		return
+	}
+	e, err := s.cache.Load(region, w.ID)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			s.logger.Warn("persistent cache load failed", "region", region, "widget", w.ID, "error", err)
+		}
+		return
+	}
+	if e.Fingerprint != widgetFingerprint(w) {
+		s.logger.Info("ignoring cache after widget source change", "region", region, "widget", w.ID)
+		return
+	}
+	st.LastSuccess = e.LastSuccess
+	st.LastPersist = e.LastSuccess
+	st.Data = e.Data
+	st.Image = e.Image
+	st.ContentType = e.ContentType
+	st.Source = e.Source
+	st.Version = e.Version
+	s.logger.Info("loaded persisted widget cache", "region", region, "widget", w.ID, "last_success", e.LastSuccess)
+}
 
 func (s *Server) StartRefreshers(ctx context.Context) {
 	for rn, r := range s.cfg.Regions {
@@ -95,14 +181,16 @@ func (s *Server) refreshOne(ctx context.Context, region string, w config.Widget)
 	attempt := time.Now()
 	result, err := s.provider.Fetch(ctx, w)
 	st.mu.Lock()
-	defer st.mu.Unlock()
 	st.LastAttempt = attempt
 	if err != nil {
 		st.Err = err.Error()
+		st.mu.Unlock()
 		s.logger.Warn("widget refresh failed", "region", region, "widget", w.ID, "error", err)
 		return
 	}
-	st.LastSuccess = time.Now()
+
+	now := time.Now()
+	st.LastSuccess = now
 	st.Err = ""
 	st.Data = result.Data
 	st.Source = result.Source
@@ -112,6 +200,42 @@ func (s *Server) refreshOne(ctx context.Context, region string, w config.Widget)
 		h := sha256.Sum256(result.Image)
 		st.Version = hex.EncodeToString(h[:8])
 	}
+
+	shouldPersist := false
+	var entry cache.Entry
+	if s.cache != nil && cacheable(w.Type) && (st.LastPersist.IsZero() || now.Sub(st.LastPersist) >= s.persistInterval(w)) {
+		shouldPersist = true
+		st.LastPersist = now
+		entry = cache.Entry{
+			Region: region, WidgetID: w.ID, Fingerprint: widgetFingerprint(w), LastSuccess: st.LastSuccess,
+			Data: st.Data, Image: append([]byte(nil), st.Image...), ContentType: st.ContentType,
+			Source: st.Source, Version: st.Version,
+		}
+	}
+	st.mu.Unlock()
+
+	if shouldPersist {
+		if err := s.cache.Save(entry); err != nil {
+			s.logger.Warn("persistent cache save failed", "region", region, "widget", w.ID, "error", err)
+			st.mu.Lock()
+			if st.LastPersist.Equal(now) {
+				st.LastPersist = time.Time{}
+			}
+			st.mu.Unlock()
+		}
+	}
+}
+
+func (s *Server) persistInterval(w config.Widget) time.Duration {
+	_, expireAfter := s.thresholds(w)
+	d := expireAfter / 2
+	if d > 30*time.Minute {
+		d = 30 * time.Minute
+	}
+	if d < time.Minute {
+		d = time.Minute
+	}
+	return d
 }
 
 func (s *Server) Handler() http.Handler {

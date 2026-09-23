@@ -47,7 +47,7 @@ func testConfig() *config.Config {
 func testLogger() *slog.Logger { return slog.New(slog.NewTextHandler(io.Discard, nil)) }
 
 func TestDashboardDoesNotExposeWeatherCoordinatesOrURL(t *testing.T) {
-	s, err := New(testConfig(), testLogger())
+	s, err := New(testConfig(), testLogger(), WithCacheDir(t.TempDir()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,7 +60,7 @@ func TestDashboardDoesNotExposeWeatherCoordinatesOrURL(t *testing.T) {
 }
 
 func TestSecurityHeaders(t *testing.T) {
-	s, _ := New(testConfig(), testLogger())
+	s, _ := New(testConfig(), testLogger(), WithCacheDir(t.TempDir()))
 	rr := httptest.NewRecorder()
 	s.Handler().ServeHTTP(rr, httptest.NewRequest("GET", "/", nil))
 	if rr.Header().Get("Content-Security-Policy") == "" {
@@ -69,7 +69,7 @@ func TestSecurityHeaders(t *testing.T) {
 }
 
 func TestLastKnownGoodSurvivesRefreshFailure(t *testing.T) {
-	s, _ := New(testConfig(), testLogger())
+	s, _ := New(testConfig(), testLogger(), WithCacheDir(t.TempDir()))
 	f := &fakeProvider{
 		results: []provider.Result{{Data: map[string]any{"temperature": 72.0}, Source: "test"}},
 		errs:    []error{nil, errors.New("upstream down")},
@@ -92,7 +92,7 @@ func TestLastKnownGoodSurvivesRefreshFailure(t *testing.T) {
 }
 
 func TestExpiredWidgetHidesPrimaryData(t *testing.T) {
-	s, _ := New(testConfig(), testLogger())
+	s, _ := New(testConfig(), testLogger(), WithCacheDir(t.TempDir()))
 	st := s.states[key("a", "w")]
 	st.LastSuccess = time.Now().Add(-2 * time.Hour)
 	st.Data = map[string]any{"temperature": 72.0}
@@ -113,7 +113,79 @@ func TestExpiredWidgetHidesPrimaryData(t *testing.T) {
 func TestMissingThemeFailsStartup(t *testing.T) {
 	cfg := testConfig()
 	cfg.Theme = "does-not-exist"
-	if _, err := New(cfg, testLogger()); err == nil {
+	if _, err := New(cfg, testLogger(), WithCacheDir(t.TempDir())); err == nil {
 		t.Fatal("expected missing theme error")
+	}
+}
+
+func TestPersistentCacheSurvivesServerRestartAndRefreshFailure(t *testing.T) {
+	cacheDir := t.TempDir()
+	cfg := testConfig()
+
+	first, err := New(cfg, testLogger(), WithCacheDir(cacheDir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	first.provider = &fakeProvider{results: []provider.Result{{Data: map[string]any{"temperature": 72.0}, Source: "test"}}}
+	w, _ := first.widgetConfig("a", "w")
+	first.refreshOne(context.Background(), "a", w)
+	firstSuccess := first.states[key("a", "w")].LastSuccess
+	if firstSuccess.IsZero() {
+		t.Fatal("first server never recorded a successful refresh")
+	}
+
+	second, err := New(cfg, testLogger(), WithCacheDir(cacheDir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	loaded := second.states[key("a", "w")]
+	if !loaded.LastSuccess.Equal(firstSuccess) {
+		t.Fatalf("cached last-success mismatch: got %v want %v", loaded.LastSuccess, firstSuccess)
+	}
+	if loaded.Data == nil {
+		t.Fatal("second server did not load persisted last-known-good data")
+	}
+
+	second.provider = &fakeProvider{errs: []error{errors.New("upstream still down")}}
+	second.refreshOne(context.Background(), "a", w)
+	if loaded.Data == nil {
+		t.Fatal("failed post-restart refresh discarded persisted last-known-good data")
+	}
+	if !loaded.LastSuccess.Equal(firstSuccess) {
+		t.Fatal("failed post-restart refresh changed persisted last-success timestamp")
+	}
+	if loaded.Err == "" {
+		t.Fatal("failed post-restart refresh did not report the live upstream error")
+	}
+}
+
+func TestPersistentCacheIgnoredWhenWidgetSourceChanges(t *testing.T) {
+	cacheDir := t.TempDir()
+	cfg := testConfig()
+	first, err := New(cfg, testLogger(), WithCacheDir(cacheDir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	first.provider = &fakeProvider{results: []provider.Result{{Data: map[string]any{"temperature": 72.0}, Source: "test"}}}
+	w, _ := first.widgetConfig("a", "w")
+	first.refreshOne(context.Background(), "a", w)
+
+	changed := testConfig()
+	newLat := 34.0
+	region := changed.Regions["a"]
+	for i := range region.Widgets {
+		if region.Widgets[i].ID == "w" {
+			region.Widgets[i].Latitude = &newLat
+		}
+	}
+	changed.Regions["a"] = region
+
+	second, err := New(changed, testLogger(), WithCacheDir(cacheDir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	st := second.states[key("a", "w")]
+	if !st.LastSuccess.IsZero() || st.Data != nil {
+		t.Fatal("cache from previous widget source/configuration was reused")
 	}
 }

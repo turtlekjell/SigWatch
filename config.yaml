@@ -60,3 +60,102 @@ regions:
             url: "https://earthquake.usgs.gov/"
           - label: "CAL FIRE"
             url: "https://www.fire.ca.gov/"
+  maps:
+    label: "Maps"
+    widgets:
+
+      - id: "conus-radar"
+        type: "image"
+        title: "RADAR"
+        url: "https://radar.weather.gov/ridge/standard/CONUS_loop.gif"
+        refresh: "2m"
+        width: 1
+        height: 1
+
+      - id: "national-forecast"
+        type: "image"
+        title: "NATIONAL FORECAST"
+        url: "https://www.wpc.ncep.noaa.gov//noaa/noaa.gif"
+        refresh: "15m"
+        width: 1
+        height: 1
+
+      - id: "us-warnings"
+        type: "image"
+        title: "US WEATHER WARNINGS"
+        url: "https://www.weather.gov/wwamap/png/US.png"
+        refresh: "5m"
+        width: 1
+        height: 1
+
+      - id: "kansas-satellite"
+        type: "image"
+        title: "KANSAS SATELLITE"
+        url: "https://cdn.star.nesdis.noaa.gov/GOES16/GLM/SECTOR/umv/EXTENT3/GOES16-UMV-EXTENT3-600x600.gif"
+        refresh: "5m"
+        width: 1
+        height: 1
+
+      - id: "local-radar"
+        type: "image"
+        title: "LOCAL RADAR"
+        url: "https://radar.weather.gov/ridge/standard/KEYX_loop.gif"
+        refresh: "2m"
+        width: 1
+        height: 1
+
+      - id: "local-satellite"
+        type: "image"
+        title: "LOCAL SATELLITE"
+        url: "https://cdn.star.nesdis.noaa.gov/GOES18/GLM/SECTOR/psw/EXTENT3/GOES18-PSW-EXTENT3-600x600.gif"
+        refresh: "5m"
+        width: 1
+        height: 1
+
+      - id: "lightning-local"
+        type: "image"
+        title: "LIGHTNING LOCAL"
+        url: "https://www.blitzortung.org/en/Images/image_b_ca.png"
+        refresh: "2m"
+        width: 1
+        height: 1
+
+      - id: "lightning-usa"
+        type: "image"
+        title: "LIGHTNING"
+        url: "https://images.lightningmaps.org/blitzortung/america/index.php?animation=usa"
+        refresh: "2m"
+        width: 1
+        height: 1
+
+      - id: "local-precipitation"
+        type: "image"
+        title: "LOCAL PRECIPITATION"
+        url: "https://graphical.weather.gov/GraphicalNDFD.php?width=515&timezone=PDT&sector=PACSOUTHWEST&element=wx&n=5"
+        refresh: "10m"
+        width: 1
+        height: 1
+
+      - id: "grey-line"
+        type: "image"
+        title: "GREY LINE"
+        url: "https://www.timeanddate.com/scripts/sunmap.php?iso=now"
+        refresh: "5m"
+        width: 1
+        height: 1
+
+      - id: "10m-propagation"
+        type: "image"
+        title: "10M PROPAGATION"
+        url: "https://www.tvcomm.co.uk/g7izu/Autosave/NA_ES_AutoSave.JPG"
+        refresh: "5m"
+        width: 1
+        height: 1
+
+      - id: "hf-propagation"
+        type: "image"
+        title: "HF PROPAGATION"
+        url: "https://www.hamqsl.com/solar101vhf.php"
+        refresh: "5m"
+        width: 1
+        height: 1
