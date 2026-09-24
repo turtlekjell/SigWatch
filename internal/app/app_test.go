@@ -240,3 +240,44 @@ func TestRefreshRegionEndpointRefreshesExternalWidgets(t *testing.T) {
 		t.Fatal("manual refresh did not update widget state")
 	}
 }
+
+func TestMergeCoastalDataPreservesFailedComponent(t *testing.T) {
+	previous := map[string]any{
+		"tides":    map[string]any{"station": "9410580", "updated_at": "old"},
+		"forecast": map[string]any{"days": []any{"old"}, "updated_at": "old"},
+	}
+	current := map[string]any{
+		"forecast":    map[string]any{"days": []any{"new"}, "updated_at": "new"},
+		"tides_error": "NOAA unavailable",
+	}
+	merged := mergeCoastalData(previous, current).(map[string]any)
+	if merged["tides"] == nil {
+		t.Fatal("previous tide component was discarded")
+	}
+	forecast := merged["forecast"].(map[string]any)
+	if forecast["updated_at"] != "new" {
+		t.Fatalf("forecast was not replaced: %#v", forecast)
+	}
+	if merged["tides_error"] == nil {
+		t.Fatal("partial-source error was lost")
+	}
+}
+
+func TestDashboardExposesViewportLayout(t *testing.T) {
+	cfg := testConfig()
+	r := cfg.Regions["a"]
+	r.Layout = "viewport"
+	r.Columns = 4
+	r.Rows = 2
+	cfg.Regions["a"] = r
+	s, err := New(cfg, testLogger(), WithCacheDir(t.TempDir()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rr := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rr, httptest.NewRequest("GET", "/api/dashboard", nil))
+	body := rr.Body.String()
+	if !strings.Contains(body, `"layout":"viewport"`) || !strings.Contains(body, `"columns":4`) || !strings.Contains(body, `"rows":2`) {
+		t.Fatalf("dashboard missing viewport layout metadata: %s", body)
+	}
+}

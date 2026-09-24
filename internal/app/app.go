@@ -114,10 +114,10 @@ func New(cfg *config.Config, logger *slog.Logger, opts ...Option) (*Server, erro
 
 func key(region, id string) string { return region + "/" + id }
 func isExternal(t string) bool {
-	return t == "image" || t == "weather" || t == "earthquake" || t == "fire" || t == "system"
+	return t == "image" || t == "weather" || t == "earthquake" || t == "fire" || t == "coastal" || t == "system"
 }
 func cacheable(t string) bool {
-	return t == "image" || t == "weather" || t == "earthquake" || t == "fire"
+	return t == "image" || t == "weather" || t == "earthquake" || t == "fire" || t == "coastal"
 }
 
 func widgetFingerprint(w config.Widget) string {
@@ -133,7 +133,10 @@ func widgetFingerprint(w config.Widget) string {
 		MaxEvents    int      `json:"max_events,omitempty"`
 		NamedOnly    bool     `json:"named_only,omitempty"`
 		MinAcres     float64  `json:"min_acres,omitempty"`
-	}{w.Type, w.URL, w.Latitude, w.Longitude, w.Units, w.MaxRadiusKM, w.MinMagnitude, w.Hours, w.MaxEvents, w.NamedOnly, w.MinAcres}
+		TideStation  string   `json:"tide_station,omitempty"`
+		ForecastDays int      `json:"forecast_days,omitempty"`
+		Timezone     string   `json:"timezone,omitempty"`
+	}{w.Type, w.URL, w.Latitude, w.Longitude, w.Units, w.MaxRadiusKM, w.MinMagnitude, w.Hours, w.MaxEvents, w.NamedOnly, w.MinAcres, w.TideStation, w.ForecastDays, w.Timezone}
 	b, _ := json.Marshal(payload)
 	h := sha256.Sum256(b)
 	return hex.EncodeToString(h[:16])
@@ -206,7 +209,11 @@ func (s *Server) refreshOne(ctx context.Context, region string, w config.Widget)
 	now := time.Now()
 	st.LastSuccess = now
 	st.Err = ""
-	st.Data = result.Data
+	if w.Type == "coastal" {
+		st.Data = mergeCoastalData(st.Data, result.Data)
+	} else {
+		st.Data = result.Data
+	}
 	st.Source = result.Source
 	if result.Image != nil {
 		st.Image = result.Image
@@ -238,6 +245,29 @@ func (s *Server) refreshOne(ctx context.Context, region string, w config.Widget)
 			st.mu.Unlock()
 		}
 	}
+}
+
+func mergeCoastalData(previous, current any) any {
+	newMap, ok := current.(map[string]any)
+	if !ok {
+		return current
+	}
+	merged := make(map[string]any, len(newMap)+2)
+	for k, v := range newMap {
+		merged[k] = v
+	}
+	oldMap, ok := previous.(map[string]any)
+	if !ok {
+		return merged
+	}
+	for _, key := range []string{"tides", "forecast"} {
+		if _, exists := merged[key]; !exists {
+			if oldValue, exists := oldMap[key]; exists {
+				merged[key] = oldValue
+			}
+		}
+	}
+	return merged
 }
 
 func (s *Server) persistInterval(w config.Widget) time.Duration {
@@ -294,6 +324,9 @@ type safeWidget struct {
 }
 type safeRegion struct {
 	Label   string       `json:"label"`
+	Layout  string       `json:"layout,omitempty"`
+	Columns int          `json:"columns,omitempty"`
+	Rows    int          `json:"rows,omitempty"`
 	Widgets []safeWidget `json:"widgets"`
 }
 
@@ -347,7 +380,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	}
 	regions := map[string]safeRegion{}
 	for rn, rr := range s.cfg.Regions {
-		sr := safeRegion{Label: rr.Label}
+		sr := safeRegion{Label: rr.Label, Layout: rr.Layout, Columns: rr.Columns, Rows: rr.Rows}
 		for _, x := range rr.Widgets {
 			sw := safeWidget{ID: x.ID, Type: x.Type, Title: x.Title, Timezone: x.Timezone, Width: x.Width, Height: x.Height, RefreshMS: x.Refresh.Milliseconds(), Links: x.Links}
 			if x.Type == "camera" {

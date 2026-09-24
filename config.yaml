@@ -57,6 +57,19 @@ regions:
         width: 2
         height: 2
 
+      - id: "hb-coastal"
+        type: "coastal"
+        title: "Beach Forecast and Tides"
+        latitude: 33.66
+        longitude: -117.99
+        timezone: "America/Los_Angeles"
+        tide_station: "9410580"
+        forecast_days: 7
+        units: "imperial"
+        refresh: "30m"
+        width: 2
+        height: 2
+
       - id: "weather"
         type: "weather"
         title: "Weather"
@@ -192,6 +205,151 @@ regions:
         type: "image"
         title: "HF PROPAGATION"
         url: "https://www.hamqsl.com/solar101vhf.php"
+        refresh: "5m"
+        width: 1
+        height: 1
+
+  local:
+    label: "Local - Huntington Beach"
+    layout: viewport
+    columns: 4
+    rows: 3
+    widgets:
+
+      # TILE 1
+      - id: "local-satellite"
+        type: "image"
+        title: "Local Satellite"
+        url: "https://cdn.star.nesdis.noaa.gov/GOES18/GLM/SECTOR/psw/EXTENT3/GOES18-PSW-EXTENT3-600x600.gif"
+        attribution: "NOAA / NESDIS / STAR"
+        refresh: "5m"
+        width: 1
+        height: 1
+
+      # TILE 2
+      - id: "local-radar"
+        type: "image"
+        title: "Local Radar"
+        url: "https://radar.weather.gov/ridge/standard/KSOX_loop.gif"
+        attribution: "NOAA / National Weather Service"
+        refresh: "2m"
+        width: 1
+        height: 1
+        freshness:
+          warning_after: "10m"
+          expire_after: "30m"
+
+      # TILE 3
+      - id: "local-video-1"
+        type: "camera"
+        title: "Local Video 1"
+        url: "https://www.youtube.com/live/mhQjsLBfOoY?si=sI7_VcT6lTWUHnvr"
+        autoplay: true
+        muted: true
+        controls: true
+        width: 1
+        height: 1
+
+      # TILE 4
+      - id: "local-weather"
+        type: "weather"
+        title: "Local Weather"
+        latitude: 33.6595
+        longitude: -117.9988
+        units: "imperial"
+        refresh: "10m"
+        width: 1
+        height: 1
+
+      # TILE 5
+      - id: "local-lightning"
+        type: "image"
+        title: "Lightning Local"
+        url: "https://www.blitzortung.org/en/Images/image_b_ca.png"
+        attribution: "Blitzortung.org"
+        refresh: "2m"
+        width: 1
+        height: 1
+
+      # TILE 6
+      - id: "local-precipitation"
+        type: "image"
+        title: "Local Precipitation"
+        url: "https://graphical.weather.gov/GraphicalNDFD.php?width=515&timezone=PDT&sector=PACSOUTHWEST&element=wx&n=5"
+        attribution: "NOAA / National Weather Service"
+        refresh: "10m"
+        width: 1
+        height: 1
+
+      # TILE 7
+      - id: "local-video-2"
+        type: "camera"
+        title: "Local Video 2"
+        url: "https://www.youtube.com/watch?v=RGYlFjV-dtc"
+        autoplay: true
+        muted: true
+        controls: true
+        width: 1
+        height: 1
+
+      # TILE 8
+      - id: "hb-coastal"
+        type: "coastal"
+        title: "Beach Forecast and Tides"
+        latitude: 33.6595
+        longitude: -117.9988
+        timezone: "America/Los_Angeles"
+        tide_station: "9410580"
+        forecast_days: 7
+        units: "imperial"
+        refresh: "30m"
+        width: 1
+        height: 1
+
+      # TILE 9
+      - id: "national-forecast"
+        type: "image"
+        title: "National Forecast"
+        url: "https://www.wpc.ncep.noaa.gov//noaa/noaa.gif"
+        attribution: "NOAA / Weather Prediction Center"
+        refresh: "15m"
+        width: 1
+        height: 1
+
+      # TILE 10
+      - id: "us-weather-warnings"
+        type: "image"
+        title: "US Weather Warnings"
+        url: "https://www.weather.gov/wwamap/png/US.png"
+        attribution: "NOAA / National Weather Service"
+        refresh: "5m"
+        width: 1
+        height: 1
+
+      # TILE 11
+      - id: "local-earthquakes"
+        type: "earthquake"
+        title: "Local Earthquakes"
+        latitude: 33.6595
+        longitude: -117.9988
+        max_radius_km: 400
+        min_magnitude: 3.0
+        hours: 24
+        max_events: 4
+        refresh: "2m"
+        width: 1
+        height: 1
+
+      # TILE 12
+      - id: "socal-fires"
+        type: "fire"
+        title: "Southern California Wildfires"
+        latitude: 33.6595
+        longitude: -117.9988
+        max_radius_km: 200
+        max_events: 4
+        named_only: true
+        min_acres: 5
         refresh: "5m"
         width: 1
         height: 1

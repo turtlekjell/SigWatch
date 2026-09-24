@@ -30,6 +30,9 @@ type Config struct {
 
 type Region struct {
 	Label   string
+	Layout  string
+	Columns int
+	Rows    int
 	Widgets []Widget
 }
 
@@ -61,6 +64,8 @@ type Widget struct {
 	Autoplay     *bool
 	Muted        *bool
 	Controls     *bool
+	TideStation  string
+	ForecastDays int
 	Freshness    *Freshness
 }
 
@@ -137,13 +142,28 @@ func decodeConfig(m map[string]any) (*Config, error) {
 }
 
 func decodeRegion(name string, m map[string]any) (Region, error) {
-	if err := unknownKeys("regions."+name, m, set("label", "widgets")); err != nil {
+	if err := unknownKeys("regions."+name, m, set("label", "layout", "columns", "rows", "widgets")); err != nil {
 		return Region{}, err
 	}
 	r := Region{}
 	var err error
 	if r.Label, err = optString(m, "label"); err != nil {
 		return r, fieldErr("regions."+name+".label", err)
+	}
+	if r.Layout, err = optString(m, "layout"); err != nil {
+		return r, fieldErr("regions."+name+".layout", err)
+	}
+	if raw, ok := m["columns"]; ok && raw != nil {
+		r.Columns, err = intValue(raw)
+		if err != nil {
+			return r, fieldErr("regions."+name+".columns", err)
+		}
+	}
+	if raw, ok := m["rows"]; ok && raw != nil {
+		r.Rows, err = intValue(raw)
+		if err != nil {
+			return r, fieldErr("regions."+name+".rows", err)
+		}
 	}
 	v, ok := m["widgets"]
 	if !ok || v == nil {
@@ -168,12 +188,12 @@ func decodeRegion(name string, m map[string]any) (Region, error) {
 }
 
 func decodeWidget(path string, m map[string]any) (Widget, error) {
-	if err := unknownKeys(path, m, set("id", "type", "title", "url", "attribution", "refresh", "width", "height", "timezone", "links", "latitude", "longitude", "units", "max_radius_km", "min_magnitude", "hours", "max_events", "named_only", "min_acres", "autoplay", "muted", "controls", "freshness")); err != nil {
+	if err := unknownKeys(path, m, set("id", "type", "title", "url", "attribution", "refresh", "width", "height", "timezone", "links", "latitude", "longitude", "units", "max_radius_km", "min_magnitude", "hours", "max_events", "named_only", "min_acres", "autoplay", "muted", "controls", "tide_station", "forecast_days", "freshness")); err != nil {
 		return Widget{}, err
 	}
 	w := Widget{}
 	var err error
-	for key, target := range map[string]*string{"id": &w.ID, "type": &w.Type, "title": &w.Title, "url": &w.URL, "attribution": &w.Attribution, "timezone": &w.Timezone, "units": &w.Units} {
+	for key, target := range map[string]*string{"id": &w.ID, "type": &w.Type, "title": &w.Title, "url": &w.URL, "attribution": &w.Attribution, "timezone": &w.Timezone, "units": &w.Units, "tide_station": &w.TideStation} {
 		*target, err = optString(m, key)
 		if err != nil {
 			return w, fieldErr(path+"."+key, err)
@@ -235,6 +255,12 @@ func decodeWidget(path string, m map[string]any) (Widget, error) {
 		w.MaxEvents, err = intValue(raw)
 		if err != nil {
 			return w, fieldErr(path+".max_events", err)
+		}
+	}
+	if raw, ok := m["forecast_days"]; ok && raw != nil {
+		w.ForecastDays, err = intValue(raw)
+		if err != nil {
+			return w, fieldErr(path+".forecast_days", err)
 		}
 	}
 	if raw, ok := m["named_only"]; ok && raw != nil {
@@ -337,6 +363,14 @@ func defaults(c *Config) {
 		if r.Label == "" {
 			r.Label = name
 		}
+		if r.Layout == "viewport" {
+			if r.Columns == 0 {
+				r.Columns = 4
+			}
+			if r.Rows == 0 {
+				r.Rows = 2
+			}
+		}
 		for i := range r.Widgets {
 			w := &r.Widgets[i]
 			if w.Title == "" {
@@ -358,6 +392,8 @@ func defaults(c *Config) {
 					w.Refresh.Duration = 2 * time.Minute
 				case "fire":
 					w.Refresh.Duration = 5 * time.Minute
+				case "coastal":
+					w.Refresh.Duration = 30 * time.Minute
 				case "system":
 					w.Refresh.Duration = 10 * time.Second
 				default:
@@ -388,6 +424,14 @@ func defaults(c *Config) {
 				}
 				if w.MaxEvents == 0 {
 					w.MaxEvents = 8
+				}
+			}
+			if w.Type == "coastal" {
+				if w.ForecastDays == 0 {
+					w.ForecastDays = 7
+				}
+				if w.Freshness == nil {
+					w.Freshness = &Freshness{WarningAfter: Duration{Duration: 90 * time.Minute}, ExpireAfter: Duration{Duration: 6 * time.Hour}}
 				}
 			}
 			if w.Type == "camera" {
@@ -455,6 +499,17 @@ func (c *Config) Validate() error {
 			problems = append(problems, fmt.Sprintf("regions.%s: region key must contain only letters, numbers, dash, and underscore", regionName))
 		}
 		r := c.Regions[regionName]
+		if r.Layout != "" && r.Layout != "flow" && r.Layout != "viewport" {
+			problems = append(problems, fmt.Sprintf("regions.%s.layout: must be flow or viewport", regionName))
+		}
+		if r.Layout == "viewport" {
+			if r.Columns < 1 || r.Columns > 12 {
+				problems = append(problems, fmt.Sprintf("regions.%s.columns: must be between 1 and 12 for viewport layout", regionName))
+			}
+			if r.Rows < 1 || r.Rows > 8 {
+				problems = append(problems, fmt.Sprintf("regions.%s.rows: must be between 1 and 8 for viewport layout", regionName))
+			}
+		}
 		seen := map[string]bool{}
 		if len(r.Widgets) == 0 {
 			problems = append(problems, fmt.Sprintf("regions.%s.widgets: at least one widget is required", regionName))
@@ -539,6 +594,26 @@ func (c *Config) Validate() error {
 			case "camera":
 				if _, err := YouTubeVideoID(w.URL); err != nil {
 					problems = append(problems, p+".url: "+err.Error())
+				}
+			case "coastal":
+				if w.Latitude == nil || w.Longitude == nil {
+					problems = append(problems, p+": coastal requires latitude and longitude")
+				} else if *w.Latitude < -90 || *w.Latitude > 90 || *w.Longitude < -180 || *w.Longitude > 180 {
+					problems = append(problems, p+": latitude/longitude out of range")
+				}
+				if ok, _ := regexp.MatchString(`^[A-Za-z0-9-]{3,20}$`, w.TideStation); !ok {
+					problems = append(problems, p+".tide_station: is required and must contain only letters, numbers, or dash")
+				}
+				if w.Timezone == "" {
+					problems = append(problems, p+".timezone: is required for coastal widgets")
+				} else if _, err := time.LoadLocation(w.Timezone); err != nil {
+					problems = append(problems, p+".timezone: unknown time zone")
+				}
+				if w.ForecastDays < 1 || w.ForecastDays > 7 {
+					problems = append(problems, p+".forecast_days: must be between 1 and 7")
+				}
+				if w.Units != "imperial" && w.Units != "metric" {
+					problems = append(problems, p+".units: must be imperial or metric")
 				}
 			case "system":
 			default:

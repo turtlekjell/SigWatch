@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"sigwatch/internal/config"
@@ -34,6 +35,8 @@ type HTTP struct {
 	Client                 *http.Client
 	earthquakeFeedOverride string
 	fireFeedOverride       string
+	coastalTideOverride    string
+	coastalPointsOverride  string
 }
 
 func NewHTTP(timeout time.Duration) *HTTP {
@@ -50,6 +53,8 @@ func (h *HTTP) Fetch(ctx context.Context, w config.Widget) (Result, error) {
 		return h.fetchEarthquakes(ctx, w)
 	case "fire":
 		return h.fetchFires(ctx, w)
+	case "coastal":
+		return h.fetchCoastal(ctx, w)
 	case "system":
 		return fetchSystem(), nil
 	default:
@@ -143,6 +148,265 @@ func (h *HTTP) fetchWeather(ctx context.Context, w config.Widget) (Result, error
 		"wind_direction": v.Current.WindDirection, "weather_code": v.Current.WeatherCode, "summary": weatherSummary(v.Current.WeatherCode),
 	}
 	return Result{Data: data, Source: "Open-Meteo"}, nil
+}
+
+type noaaTideResponse struct {
+	Predictions []struct {
+		Time  string `json:"t"`
+		Value string `json:"v"`
+		Type  string `json:"type"`
+	} `json:"predictions"`
+	Error *struct {
+		Message string `json:"message"`
+	} `json:"error,omitempty"`
+}
+
+type nwsPointsResponse struct {
+	Properties struct {
+		Forecast string `json:"forecast"`
+	} `json:"properties"`
+}
+
+type nwsForecastResponse struct {
+	Properties struct {
+		Updated     string `json:"updated"`
+		GeneratedAt string `json:"generatedAt"`
+		Periods     []struct {
+			Name                       string `json:"name"`
+			StartTime                  string `json:"startTime"`
+			IsDaytime                  bool   `json:"isDaytime"`
+			Temperature                int    `json:"temperature"`
+			TemperatureUnit            string `json:"temperatureUnit"`
+			ShortForecast              string `json:"shortForecast"`
+			ProbabilityOfPrecipitation struct {
+				Value *int `json:"value"`
+			} `json:"probabilityOfPrecipitation"`
+		} `json:"periods"`
+	} `json:"properties"`
+}
+
+func (h *HTTP) fetchCoastal(ctx context.Context, w config.Widget) (Result, error) {
+	var wg sync.WaitGroup
+	var tides map[string]any
+	var forecast map[string]any
+	var tideErr, forecastErr error
+
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		tides, tideErr = h.fetchTides(ctx, w)
+	}()
+	go func() {
+		defer wg.Done()
+		forecast, forecastErr = h.fetchNWSForecast(ctx, w)
+	}()
+	wg.Wait()
+
+	if tideErr != nil && forecastErr != nil {
+		return Result{}, fmt.Errorf("coastal sources unavailable: tides: %v; forecast: %v", tideErr, forecastErr)
+	}
+	data := map[string]any{}
+	if tides != nil {
+		data["tides"] = tides
+	}
+	if forecast != nil {
+		data["forecast"] = forecast
+	}
+	if tideErr != nil {
+		data["tides_error"] = tideErr.Error()
+	}
+	if forecastErr != nil {
+		data["forecast_error"] = forecastErr.Error()
+	}
+	return Result{Data: data, Source: "NOAA CO-OPS + National Weather Service"}, nil
+}
+
+func (h *HTTP) fetchTides(ctx context.Context, w config.Widget) (map[string]any, error) {
+	endpoint := h.coastalTideOverride
+	if endpoint == "" {
+		endpoint = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
+	}
+	u, err := url.Parse(endpoint)
+	if err != nil {
+		return nil, err
+	}
+	now := time.Now().UTC()
+	q := u.Query()
+	q.Set("begin_date", now.Format("20060102"))
+	q.Set("end_date", now.Add(48*time.Hour).Format("20060102"))
+	q.Set("station", w.TideStation)
+	q.Set("product", "predictions")
+	q.Set("datum", "MLLW")
+	q.Set("time_zone", "gmt")
+	q.Set("interval", "hilo")
+	if w.Units == "metric" {
+		q.Set("units", "metric")
+	} else {
+		q.Set("units", "english")
+	}
+	q.Set("application", "SigWatch")
+	q.Set("format", "json")
+	u.RawQuery = q.Encode()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", "SigWatch/0.1 (+local situational-awareness dashboard)")
+	resp, err := h.Client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		return nil, fmt.Errorf("NOAA tide upstream returned %s", resp.Status)
+	}
+	var v noaaTideResponse
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 2<<20)).Decode(&v); err != nil {
+		return nil, fmt.Errorf("decode NOAA tides: %w", err)
+	}
+	if v.Error != nil && strings.TrimSpace(v.Error.Message) != "" {
+		return nil, fmt.Errorf("NOAA tides: %s", strings.TrimSpace(v.Error.Message))
+	}
+	loc, err := time.LoadLocation(w.Timezone)
+	if err != nil {
+		return nil, fmt.Errorf("load coastal timezone: %w", err)
+	}
+	events := make([]map[string]any, 0, 6)
+	for _, prediction := range v.Predictions {
+		tm, err := time.ParseInLocation("2006-01-02 15:04", prediction.Time, time.UTC)
+		if err != nil || tm.Before(now.Add(-5*time.Minute)) {
+			continue
+		}
+		height, err := strconv.ParseFloat(prediction.Value, 64)
+		if err != nil {
+			continue
+		}
+		kind := strings.ToUpper(strings.TrimSpace(prediction.Type))
+		if kind != "H" && kind != "L" {
+			continue
+		}
+		events = append(events, map[string]any{
+			"time": tm.Format(time.RFC3339), "local_time": tm.In(loc).Format("2006-01-02T15:04:05Z07:00"),
+			"height": height, "type": kind,
+		})
+		if len(events) >= 6 {
+			break
+		}
+	}
+	if len(events) == 0 {
+		return nil, fmt.Errorf("NOAA tides returned no upcoming high/low predictions")
+	}
+	unit := "ft"
+	if w.Units == "metric" {
+		unit = "m"
+	}
+	return map[string]any{
+		"events": events, "station": w.TideStation, "datum": "MLLW", "height_unit": unit,
+		"updated_at": time.Now().UTC().Format(time.RFC3339),
+	}, nil
+}
+
+func (h *HTTP) fetchNWSForecast(ctx context.Context, w config.Widget) (map[string]any, error) {
+	pointsURL := h.coastalPointsOverride
+	if pointsURL == "" {
+		pointsURL = fmt.Sprintf("https://api.weather.gov/points/%.4f,%.4f", *w.Latitude, *w.Longitude)
+	}
+	var points nwsPointsResponse
+	if err := h.getNWSJSON(ctx, pointsURL, &points); err != nil {
+		return nil, fmt.Errorf("NWS point lookup: %w", err)
+	}
+	forecastURL := strings.TrimSpace(points.Properties.Forecast)
+	if forecastURL == "" {
+		return nil, fmt.Errorf("NWS point lookup did not return a forecast URL")
+	}
+	var forecast nwsForecastResponse
+	if err := h.getNWSJSON(ctx, forecastURL, &forecast); err != nil {
+		return nil, fmt.Errorf("NWS forecast: %w", err)
+	}
+	loc, err := time.LoadLocation(w.Timezone)
+	if err != nil {
+		return nil, fmt.Errorf("load coastal timezone: %w", err)
+	}
+
+	order := make([]string, 0, 8)
+	byDate := map[string]map[string]any{}
+	for _, period := range forecast.Properties.Periods {
+		start, err := time.Parse(time.RFC3339, period.StartTime)
+		if err != nil {
+			continue
+		}
+		localStart := start.In(loc)
+		key := localStart.Format("2006-01-02")
+		day, ok := byDate[key]
+		if !ok {
+			day = map[string]any{"date": key, "day_name": localStart.Format("Mon"), "precip_probability": 0}
+			byDate[key] = day
+			order = append(order, key)
+		}
+		temp := float64(period.Temperature)
+		unit := strings.ToUpper(period.TemperatureUnit)
+		if w.Units == "metric" && unit == "F" {
+			temp = (temp - 32) * 5 / 9
+			unit = "C"
+		}
+		if period.IsDaytime {
+			day["high"] = math.Round(temp)
+			day["summary"] = period.ShortForecast
+		} else {
+			day["low"] = math.Round(temp)
+			if _, ok := day["summary"]; !ok {
+				day["summary"] = period.ShortForecast
+			}
+		}
+		day["temperature_unit"] = unit
+		if period.ProbabilityOfPrecipitation.Value != nil {
+			current, _ := day["precip_probability"].(int)
+			if *period.ProbabilityOfPrecipitation.Value > current {
+				day["precip_probability"] = *period.ProbabilityOfPrecipitation.Value
+			}
+		}
+	}
+
+	days := make([]map[string]any, 0, w.ForecastDays)
+	for _, key := range order {
+		if len(days) >= w.ForecastDays {
+			break
+		}
+		days = append(days, byDate[key])
+	}
+	if len(days) == 0 {
+		return nil, fmt.Errorf("NWS forecast returned no usable periods")
+	}
+	updated := forecast.Properties.Updated
+	if updated == "" {
+		updated = forecast.Properties.GeneratedAt
+	}
+	if updated == "" {
+		updated = time.Now().UTC().Format(time.RFC3339)
+	}
+	return map[string]any{"days": days, "updated_at": updated}, nil
+}
+
+func (h *HTTP) getNWSJSON(ctx context.Context, endpoint string, target any) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("User-Agent", "SigWatch/0.1 (local situational-awareness dashboard)")
+	req.Header.Set("Accept", "application/geo+json, application/ld+json, application/json")
+	resp, err := h.Client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		return fmt.Errorf("upstream returned %s", resp.Status)
+	}
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 4<<20)).Decode(target); err != nil {
+		return fmt.Errorf("decode response: %w", err)
+	}
+	return nil
 }
 
 type usgsEarthquakeResponse struct {

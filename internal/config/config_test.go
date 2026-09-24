@@ -180,3 +180,105 @@ regions:
 		t.Fatalf("expected YouTube validation error, got %v", err)
 	}
 }
+
+func TestCoastalDefaultsAndValidation(t *testing.T) {
+	p := write(t, `default_region: a
+regions:
+  a:
+    widgets:
+      - id: coast
+        type: coastal
+        latitude: 33.66
+        longitude: -117.99
+        timezone: America/Los_Angeles
+        tide_station: "9410580"
+`)
+	c, err := Load(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := c.Regions["a"].Widgets[0]
+	if w.ForecastDays != 7 || w.Refresh.String() != "30m0s" || w.TideStation != "9410580" {
+		t.Fatalf("unexpected coastal defaults: %#v", w)
+	}
+	if w.Freshness == nil || w.Freshness.WarningAfter.String() != "1h30m0s" || w.Freshness.ExpireAfter.String() != "6h0m0s" {
+		t.Fatalf("unexpected coastal freshness defaults: %#v", w.Freshness)
+	}
+}
+
+func TestCoastalRequiresStationAndTimezone(t *testing.T) {
+	p := write(t, `default_region: a
+regions:
+  a:
+    widgets:
+      - id: coast
+        type: coastal
+        latitude: 33.66
+        longitude: -117.99
+`)
+	_, err := Load(p)
+	if err == nil || !strings.Contains(err.Error(), "tide_station") || !strings.Contains(err.Error(), "timezone") {
+		t.Fatalf("expected coastal station/timezone validation error, got %v", err)
+	}
+}
+
+func TestViewportRegionLayout(t *testing.T) {
+	p := write(t, `default_region: local
+regions:
+  local:
+    label: Local
+    layout: viewport
+    columns: 4
+    rows: 2
+    widgets:
+      - id: utc
+        type: clock
+        timezone: UTC
+`)
+	c, err := Load(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := c.Regions["local"]
+	if r.Layout != "viewport" || r.Columns != 4 || r.Rows != 2 {
+		t.Fatalf("unexpected viewport layout: %#v", r)
+	}
+}
+
+func TestViewportRegionLayoutDefaults(t *testing.T) {
+	p := write(t, `default_region: local
+regions:
+  local:
+    layout: viewport
+    widgets:
+      - id: utc
+        type: clock
+        timezone: UTC
+`)
+	c, err := Load(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := c.Regions["local"]
+	if r.Columns != 4 || r.Rows != 2 {
+		t.Fatalf("unexpected viewport defaults: %#v", r)
+	}
+}
+
+func TestViewportRegionRejectsBadDimensions(t *testing.T) {
+	p := write(t, `default_region: local
+regions:
+  local:
+    layout: viewport
+    columns: 0
+    rows: 20
+    widgets:
+      - id: utc
+        type: clock
+        timezone: UTC
+`)
+	_, err := Load(p)
+	if err == nil || !strings.Contains(err.Error(), "rows") {
+		t.Fatalf("expected viewport dimension error, got %v", err)
+	}
+}

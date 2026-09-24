@@ -2,7 +2,7 @@
 
 const state = {config: null, region: null, timers: [], clockTimers: [], refreshing: false};
 const $ = selector => document.querySelector(selector);
-const externalTypes = new Set(['image', 'weather', 'earthquake', 'fire', 'system']);
+const externalTypes = new Set(['image', 'weather', 'earthquake', 'fire', 'coastal', 'system']);
 
 function clearTimers() {
   for (const timer of state.timers) clearInterval(timer);
@@ -50,16 +50,27 @@ function render() {
   const renderedRegion = state.region;
   const dashboard = $('#dashboard');
   dashboard.innerHTML = '';
-  dashboard.classList.toggle('maps-grid', renderedRegion === 'maps');
-  dashboard.dataset.region = renderedRegion;
-
   const region = state.config.regions[renderedRegion];
+  const viewport = region.layout === 'viewport';
+  dashboard.classList.toggle('maps-grid', renderedRegion === 'maps' && !viewport);
+  dashboard.classList.toggle('viewport-grid', viewport);
+  dashboard.dataset.region = renderedRegion;
+  if (viewport) {
+    dashboard.style.setProperty('--layout-columns', Math.max(1, region.columns || 4));
+    dashboard.style.setProperty('--layout-rows', Math.max(1, region.rows || 2));
+  } else {
+    dashboard.style.removeProperty('--layout-columns');
+    dashboard.style.removeProperty('--layout-rows');
+  }
+
   for (const widget of region.widgets) {
     const element = document.createElement('section');
     element.className = 'widget';
     element.id = `widget-${widget.id}`;
-    element.style.gridColumn = `span ${Math.min(widget.width || 1, 4)}`;
-    element.style.gridRow = `span ${Math.min(widget.height || 1, 4)}`;
+    const columnLimit = viewport ? Math.max(1, region.columns || 4) : 4;
+    const rowLimit = viewport ? Math.max(1, region.rows || 2) : 4;
+    element.style.gridColumn = `span ${Math.min(widget.width || 1, columnLimit)}`;
+    element.style.gridRow = `span ${Math.min(widget.height || 1, rowLimit)}`;
     element.innerHTML = `<div class="widget-header"><span class="widget-title">${esc(widget.title)}</span><span class="widget-status" data-status>Ready</span></div><div class="widget-body" data-body></div>`;
     dashboard.appendChild(element);
 
@@ -179,6 +190,8 @@ async function refreshWidget(element, widget, regionID) {
       renderEarthquakes(body, result.data, result.source);
     } else if (widget.type === 'fire') {
       renderFires(body, result.data, result.source);
+    } else if (widget.type === 'coastal') {
+      renderCoastal(body, result.data, result.source, widget);
     } else if (widget.type === 'system') {
       renderSystem(body, result.data);
     }
@@ -366,6 +379,79 @@ function relativeAge(date) {
   if (hours < 24) return `${hours}h ${minutes % 60}m ago`;
   const days = Math.floor(hours / 24);
   return `${days}d ${hours % 24}h ago`;
+}
+
+
+function renderCoastal(body, data, source, widget) {
+  if (!data) {
+    body.innerHTML = '<div class="empty">No coastal data</div>';
+    return;
+  }
+  const tides = data.tides || null;
+  const forecast = data.forecast || null;
+  const tideError = data.tides_error || '';
+  const forecastError = data.forecast_error || '';
+
+  const tideHTML = renderTideSection(tides, tideError, widget);
+  const forecastHTML = renderForecastSection(forecast, forecastError);
+  body.innerHTML = `<div class="coastal-layout">${tideHTML}${forecastHTML}</div><div class="status-line">Source: ${esc(source || 'NOAA CO-OPS + National Weather Service')}</div>`;
+}
+
+function renderTideSection(tides, error, widget) {
+  if (!tides) {
+    return `<section class="coastal-section"><div class="coastal-section-title">Next tides</div><div class="coastal-part-empty">Tides unavailable${error ? ` · ${esc(error)}` : ''}</div></section>`;
+  }
+  const unit = tides.height_unit || '';
+  const events = (tides.events || []).slice(0, 4).map(event => {
+    const label = event.type === 'H' ? 'HIGH' : 'LOW';
+    const time = formatCoastalTime(event.local_time || event.time, widget.timezone);
+    const height = Number(event.height);
+    return `<div class="tide-event"><strong>${label}</strong><span class="tide-height">${Number.isFinite(height) ? height.toFixed(1) : '?'} ${esc(unit)}</span><span>${esc(time)}</span></div>`;
+  }).join('');
+  const note = error
+    ? `<div class="coastal-source-note warning-text">Cached tide data · ${esc(error)}</div>`
+    : `<div class="coastal-source-note">NOAA station ${esc(tides.station || '')} · ${esc(tides.datum || 'MLLW')}</div>`;
+  return `<section class="coastal-section"><div class="coastal-section-title">Next tides</div><div class="tide-grid">${events}</div>${note}</section>`;
+}
+
+function renderForecastSection(forecast, error) {
+  if (!forecast) {
+    return `<section class="coastal-section"><div class="coastal-section-title">7-day forecast</div><div class="coastal-part-empty">Forecast unavailable${error ? ` · ${esc(error)}` : ''}</div></section>`;
+  }
+  const cards = (forecast.days || []).map(day => {
+    const high = Number(day.high);
+    const low = Number(day.low);
+    const unit = day.temperature_unit || 'F';
+    const precip = Number(day.precip_probability);
+    const summary = day.summary || '';
+    return `<div class="forecast-day" title="${esc(summary)}"><strong>${esc(day.day_name || '')}</strong><span class="forecast-icon" aria-hidden="true">${forecastSymbol(summary)}</span><span class="forecast-temp"><b>${Number.isFinite(high) ? Math.round(high) + '°' : '—'}</b> / ${Number.isFinite(low) ? Math.round(low) + '°' : '—'}${esc(unit)}</span><span class="forecast-precip">${Number.isFinite(precip) ? Math.round(precip) : 0}% rain</span><span class="forecast-summary">${esc(summary)}</span></div>`;
+  }).join('');
+  const note = error
+    ? `<div class="coastal-source-note warning-text">Cached forecast · ${esc(error)}</div>`
+    : '<div class="coastal-source-note">National Weather Service 7-day forecast</div>';
+  return `<section class="coastal-section"><div class="coastal-section-title">7-day forecast</div><div class="forecast-grid">${cards}</div>${note}</section>`;
+}
+
+function formatCoastalTime(raw, timezone) {
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return 'time unavailable';
+  try {
+    return new Intl.DateTimeFormat([], {timeZone: timezone || undefined, weekday: 'short', hour: 'numeric', minute: '2-digit'}).format(d);
+  } catch (_) {
+    return d.toLocaleString([], {weekday: 'short', hour: 'numeric', minute: '2-digit'});
+  }
+}
+
+function forecastSymbol(summary) {
+  const text = String(summary || '').toLowerCase();
+  if (text.includes('thunder')) return '⛈';
+  if (text.includes('snow') || text.includes('sleet')) return '❄';
+  if (text.includes('rain') || text.includes('shower')) return '🌧';
+  if (text.includes('fog') || text.includes('haze')) return '🌫';
+  if (text.includes('mostly cloudy') || text.includes('cloudy')) return '☁';
+  if (text.includes('partly') || text.includes('mostly sunny')) return '⛅';
+  if (text.includes('sunny') || text.includes('clear')) return '☀';
+  return '◐';
 }
 
 function renderSystem(body, data) {

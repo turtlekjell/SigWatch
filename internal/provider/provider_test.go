@@ -189,3 +189,97 @@ func TestFireNamedOnlyDropsCodeOnlyIncident(t *testing.T) {
 		t.Fatalf("unexpected named-only fires: %#v", fires)
 	}
 }
+
+func TestCoastalFetchCombinesTidesAndForecast(t *testing.T) {
+	now := time.Now().UTC().Truncate(time.Minute)
+	var serverURL string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/tides":
+			if r.URL.Query().Get("product") != "predictions" || r.URL.Query().Get("interval") != "hilo" || r.URL.Query().Get("station") != "9410580" {
+				t.Errorf("unexpected tide query: %s", r.URL.RawQuery)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprintf(w, `{"predictions":[{"t":%q,"v":"4.8","type":"H"},{"t":%q,"v":"0.7","type":"L"}]}`,
+				now.Add(2*time.Hour).Format("2006-01-02 15:04"), now.Add(8*time.Hour).Format("2006-01-02 15:04"))
+		case "/points":
+			if !strings.Contains(r.Header.Get("User-Agent"), "SigWatch") {
+				t.Errorf("missing SigWatch user agent")
+			}
+			w.Header().Set("Content-Type", "application/geo+json")
+			fmt.Fprintf(w, `{"properties":{"forecast":%q}}`, serverURL+"/forecast")
+		case "/forecast":
+			w.Header().Set("Content-Type", "application/geo+json")
+			_, _ = w.Write([]byte(`{"properties":{"updated":"2026-09-23T19:00:00+00:00","periods":[
+{"name":"Wednesday","startTime":"2026-09-23T12:00:00-07:00","isDaytime":true,"temperature":74,"temperatureUnit":"F","shortForecast":"Sunny","probabilityOfPrecipitation":{"value":5}},
+{"name":"Wednesday Night","startTime":"2026-09-23T18:00:00-07:00","isDaytime":false,"temperature":61,"temperatureUnit":"F","shortForecast":"Mostly Clear","probabilityOfPrecipitation":{"value":2}},
+{"name":"Thursday","startTime":"2026-09-24T06:00:00-07:00","isDaytime":true,"temperature":75,"temperatureUnit":"F","shortForecast":"Partly Sunny","probabilityOfPrecipitation":{"value":10}},
+{"name":"Thursday Night","startTime":"2026-09-24T18:00:00-07:00","isDaytime":false,"temperature":60,"temperatureUnit":"F","shortForecast":"Mostly Cloudy","probabilityOfPrecipitation":{"value":15}}
+]}}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+	serverURL = ts.URL
+
+	lat, lon := 33.66, -117.99
+	p := NewHTTP(2 * time.Second)
+	p.coastalTideOverride = ts.URL + "/tides"
+	p.coastalPointsOverride = ts.URL + "/points"
+	got, err := p.Fetch(context.Background(), config.Widget{
+		Type: "coastal", Latitude: &lat, Longitude: &lon, Timezone: "America/Los_Angeles",
+		TideStation: "9410580", ForecastDays: 2, Units: "imperial",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Source != "NOAA CO-OPS + National Weather Service" {
+		t.Fatalf("source = %q", got.Source)
+	}
+	data := got.Data.(map[string]any)
+	tides := data["tides"].(map[string]any)
+	if len(tides["events"].([]map[string]any)) != 2 {
+		t.Fatalf("unexpected tides: %#v", tides)
+	}
+	forecast := data["forecast"].(map[string]any)
+	days := forecast["days"].([]map[string]any)
+	if len(days) != 2 || days[0]["high"] != float64(74) || days[0]["low"] != float64(61) {
+		t.Fatalf("unexpected forecast: %#v", days)
+	}
+	if days[1]["precip_probability"] != 15 {
+		t.Fatalf("unexpected precip: %#v", days[1])
+	}
+}
+
+func TestCoastalFetchKeepsForecastWhenTidesFail(t *testing.T) {
+	var serverURL string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/tides":
+			http.Error(w, "no tides", http.StatusServiceUnavailable)
+		case "/points":
+			fmt.Fprintf(w, `{"properties":{"forecast":%q}}`, serverURL+"/forecast")
+		case "/forecast":
+			_, _ = w.Write([]byte(`{"properties":{"periods":[{"name":"Today","startTime":"2026-09-23T12:00:00-07:00","isDaytime":true,"temperature":74,"temperatureUnit":"F","shortForecast":"Sunny","probabilityOfPrecipitation":{"value":0}}]}}`))
+		}
+	}))
+	defer ts.Close()
+	serverURL = ts.URL
+
+	lat, lon := 33.66, -117.99
+	p := NewHTTP(2 * time.Second)
+	p.coastalTideOverride = ts.URL + "/tides"
+	p.coastalPointsOverride = ts.URL + "/points"
+	got, err := p.Fetch(context.Background(), config.Widget{
+		Type: "coastal", Latitude: &lat, Longitude: &lon, Timezone: "America/Los_Angeles",
+		TideStation: "9410580", ForecastDays: 1, Units: "imperial",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	data := got.Data.(map[string]any)
+	if data["forecast"] == nil || data["tides_error"] == nil {
+		t.Fatalf("expected partial coastal result, got %#v", data)
+	}
+}
