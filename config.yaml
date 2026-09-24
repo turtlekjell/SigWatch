@@ -1,7 +1,7 @@
 title: "SigWatch"
 listen: "127.0.0.1:8080"
 theme: "default"
-default_region: "prototype"
+default_region: "local"
 freshness:
   warning_after: "15m"
   expire_after: "1h"
