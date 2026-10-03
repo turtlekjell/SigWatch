@@ -1,7 +1,7 @@
 title: "SigWatch"
 listen: "127.0.0.1:8080"
 theme: "default"
-default_region: "local"
+default_region: "southwest"
 freshness:
   warning_after: "15m"
   expire_after: "1h"
@@ -109,127 +109,273 @@ regions:
             url: "https://earthquake.usgs.gov/"
           - label: "CAL FIRE"
             url: "https://www.fire.ca.gov/"
-  maps:
-    label: "Maps"
-    widgets:
-
-      - id: "conus-radar"
-        type: "image"
-        title: "RADAR"
-        url: "https://radar.weather.gov/ridge/standard/CONUS_loop.gif"
-        refresh: "2m"
-        width: 1
-        height: 1
-
-      - id: "national-forecast"
-        type: "image"
-        title: "NATIONAL FORECAST"
-        url: "https://www.wpc.ncep.noaa.gov//noaa/noaa.gif"
-        refresh: "15m"
-        width: 1
-        height: 1
-
-      - id: "us-warnings"
-        type: "image"
-        title: "US WEATHER WARNINGS"
-        url: "https://www.weather.gov/wwamap/png/US.png"
-        refresh: "5m"
-        width: 1
-        height: 1
-
-      - id: "kansas-satellite"
-        type: "image"
-        title: "KANSAS SATELLITE"
-        url: "https://cdn.star.nesdis.noaa.gov/GOES16/GLM/SECTOR/umv/EXTENT3/GOES16-UMV-EXTENT3-600x600.gif"
-        refresh: "5m"
-        width: 1
-        height: 1
-
-      - id: "local-radar"
-        type: "image"
-        title: "LOCAL RADAR"
-        url: "https://radar.weather.gov/ridge/standard/KEYX_loop.gif"
-        refresh: "2m"
-        width: 1
-        height: 1
-
-      - id: "local-satellite"
-        type: "image"
-        title: "LOCAL SATELLITE"
-        url: "https://cdn.star.nesdis.noaa.gov/GOES18/GLM/SECTOR/psw/EXTENT3/GOES18-PSW-EXTENT3-600x600.gif"
-        refresh: "5m"
-        width: 1
-        height: 1
-
-      - id: "lightning-local"
-        type: "image"
-        title: "LIGHTNING LOCAL"
-        url: "https://www.blitzortung.org/en/Images/image_b_ca.png"
-        refresh: "2m"
-        width: 1
-        height: 1
-
-      - id: "lightning-usa"
-        type: "image"
-        title: "LIGHTNING"
-        url: "https://images.lightningmaps.org/blitzortung/america/index.php?animation=usa"
-        refresh: "2m"
-        width: 1
-        height: 1
-
-      - id: "local-precipitation"
-        type: "image"
-        title: "LOCAL PRECIPITATION"
-        url: "https://graphical.weather.gov/GraphicalNDFD.php?width=515&timezone=PDT&sector=PACSOUTHWEST&element=wx&n=5"
-        refresh: "10m"
-        width: 1
-        height: 1
-
-      - id: "grey-line"
-        type: "image"
-        title: "GREY LINE"
-        url: "https://www.timeanddate.com/scripts/sunmap.php?iso=now"
-        refresh: "5m"
-        width: 1
-        height: 1
-
-      - id: "10m-propagation"
-        type: "image"
-        title: "10M PROPAGATION"
-        url: "https://www.tvcomm.co.uk/g7izu/Autosave/NA_ES_AutoSave.JPG"
-        refresh: "5m"
-        width: 1
-        height: 1
-
-      - id: "hf-propagation"
-        type: "image"
-        title: "HF PROPAGATION"
-        url: "https://www.hamqsl.com/solar101vhf.php"
-        refresh: "5m"
-        width: 1
-        height: 1
-
-  local:
-    label: "Local - Huntington Beach"
+  national:
+    label: "National / Radio"
     layout: viewport
     columns: 4
     rows: 3
     widgets:
 
       # TILE 1
-      - id: "local-satellite"
+      - id: "conus-radar"
         type: "image"
-        title: "Local Satellite"
-        url: "https://cdn.star.nesdis.noaa.gov/GOES18/GLM/SECTOR/psw/EXTENT3/GOES18-PSW-EXTENT3-600x600.gif"
+        title: "CONUS Radar"
+        url: "https://radar.weather.gov/ridge/standard/CONUS_loop.gif"
+        attribution: "NOAA / National Weather Service"
+        refresh: "2m"
+        width: 1
+        height: 1
+
+      # TILE 2
+      - id: "national-forecast"
+        type: "image"
+        title: "National Forecast"
+        url: "https://www.wpc.ncep.noaa.gov//noaa/noaa.gif"
+        attribution: "NOAA / Weather Prediction Center"
+        refresh: "15m"
+        width: 1
+        height: 1
+
+      # TILE 3
+      - id: "us-warnings"
+        type: "image"
+        title: "US Weather Warnings"
+        url: "https://www.weather.gov/wwamap/png/US.png"
+        attribution: "NOAA / National Weather Service"
+        refresh: "5m"
+        width: 1
+        height: 1
+
+      # TILE 4
+      - id: "goes-east-conus"
+        type: "image"
+        title: "GOES-East CONUS"
+        url: "https://cdn.star.nesdis.noaa.gov/GOES19/ABI/CONUS/GEOCOLOR/GOES19-CONUS-GEOCOLOR-625x375.gif"
         attribution: "NOAA / NESDIS / STAR"
         refresh: "5m"
         width: 1
         height: 1
 
-      # TILE 2
-      - id: "local-radar"
+      # TILE 5
+      - id: "lightning-usa"
         type: "image"
-        title: "Local Radar"
+        title: "US Lightning"
+        url: "https://images.lightningmaps.org/blitzortung/america/index.php?animation=usa"
+        attribution: "LightningMaps.org / Blitzortung.org"
+        refresh: "2m"
+        width: 1
+        height: 1
+
+      # TILE 6
+      - id: "solar-map"
+        type: "image"
+        title: "Solar Map"
+        url: "https://www.hamqsl.com/solarmap.php"
+        attribution: "HAMQSL.com / N0NBH"
+        refresh: "15m"
+        width: 1
+        height: 1
+
+      # TILE 7
+      - id: "hf-vhf-conditions"
+        type: "image"
+        title: "HF / VHF Conditions"
+        url: "https://www.hamqsl.com/solar101vhf.php"
+        attribution: "HAMQSL.com / N0NBH"
+        refresh: "30m"
+        width: 1
+        height: 1
+
+      # TILE 8
+      - id: "solar-image"
+        type: "image"
+        title: "Solar Image"
+        url: "https://www.hamqsl.com/solarsun.php"
+        attribution: "HAMQSL.com / N0NBH"
+        refresh: "30m"
+        width: 1
+        height: 1
+
+      # TILE 9
+      - id: "solar-trend"
+        type: "image"
+        title: "Solar Trend"
+        url: "https://www.hamqsl.com/solargraph.php"
+        attribution: "HAMQSL.com / N0NBH"
+        refresh: "1h"
+        width: 1
+        height: 1
+
+      # TILE 10
+      - id: "utc"
+        type: "clock"
+        title: "UTC"
+        timezone: "UTC"
+        width: 1
+        height: 1
+
+      # TILE 11
+      - id: "national-system"
+        type: "system"
+        title: "SigWatch Host"
+        refresh: "10s"
+        width: 1
+        height: 1
+
+      # TILE 12
+      - id: "radio-links"
+        type: "links"
+        title: "Radio / Space Weather"
+        width: 1
+        height: 1
+        links:
+          - label: "NOAA SWPC"
+            url: "https://www.swpc.noaa.gov/"
+          - label: "HAMQSL"
+            url: "https://www.hamqsl.com/"
+          - label: "ARRL"
+            url: "https://www.arrl.org/"
+          - label: "QRZ"
+            url: "https://www.qrz.com/"
+
+  northwest:
+    label: "Northwest - Seattle"
+    layout: viewport
+    columns: 4
+    rows: 3
+    widgets:
+      - id: "nw-satellite"
+        type: "image"
+        title: "Pacific Northwest Satellite"
+        url: "https://cdn.star.nesdis.noaa.gov/GOES18/ABI/SECTOR/pnw/GEOCOLOR/GOES18-PNW-GEOCOLOR-600x600.gif"
+        attribution: "CIRA / NOAA / NESDIS / STAR"
+        refresh: "5m"
+        width: 1
+        height: 1
+      - id: "nw-radar"
+        type: "image"
+        title: "Seattle Radar"
+        url: "https://radar.weather.gov/ridge/standard/KATX_loop.gif"
+        attribution: "NOAA / National Weather Service"
+        refresh: "2m"
+        width: 1
+        height: 1
+        freshness:
+          warning_after: "10m"
+          expire_after: "30m"
+      - id: "nw-clock"
+        type: "clock"
+        title: "Pacific Time"
+        timezone: "America/Los_Angeles"
+        width: 1
+        height: 1
+      - id: "nw-weather"
+        type: "weather"
+        title: "Seattle Weather"
+        latitude: 47.6062
+        longitude: -122.3321
+        units: "imperial"
+        refresh: "10m"
+        width: 1
+        height: 1
+      - id: "nw-lightning"
+        type: "image"
+        title: "Northwest Lightning"
+        url: "https://cdn.star.nesdis.noaa.gov/GOES18/GLM/SECTOR/pnw/EXTENT3/GOES18-PNW-EXTENT3-600x600.gif"
+        attribution: "NOAA / NESDIS / STAR"
+        refresh: "5m"
+        width: 1
+        height: 1
+      - id: "nw-precipitation"
+        type: "image"
+        title: "Northwest Precipitation"
+        url: "https://graphical.weather.gov/GraphicalNDFD.php?width=515&timezone=PDT&sector=PACNORTHWEST&element=wx&n=5"
+        attribution: "NOAA / National Weather Service"
+        refresh: "10m"
+        width: 1
+        height: 1
+      - id: "nw-links"
+        type: "links"
+        title: "Seattle Sources"
+        width: 1
+        height: 1
+        links:
+          - label: "NWS Seattle"
+            url: "https://www.weather.gov/sew/"
+          - label: "USGS Earthquakes"
+            url: "https://earthquake.usgs.gov/"
+          - label: "NIFC"
+            url: "https://www.nifc.gov/"
+      - id: "nw-coastal"
+        type: "coastal"
+        title: "Seattle Forecast and Tides"
+        latitude: 47.6062
+        longitude: -122.3321
+        timezone: "America/Los_Angeles"
+        tide_station: "9447130"
+        forecast_days: 7
+        units: "imperial"
+        refresh: "30m"
+        width: 1
+        height: 1
+      - id: "nw-national-forecast"
+        type: "image"
+        title: "National Forecast"
+        url: "https://www.wpc.ncep.noaa.gov//noaa/noaa.gif"
+        attribution: "NOAA / Weather Prediction Center"
+        refresh: "15m"
+        width: 1
+        height: 1
+      - id: "nw-us-warnings"
+        type: "image"
+        title: "US Weather Warnings"
+        url: "https://www.weather.gov/wwamap/png/US.png"
+        attribution: "NOAA / National Weather Service"
+        refresh: "5m"
+        width: 1
+        height: 1
+      - id: "nw-earthquakes"
+        type: "earthquake"
+        title: "Regional Earthquakes"
+        latitude: 47.6062
+        longitude: -122.3321
+        max_radius_km: 400
+        min_magnitude: 3.0
+        hours: 24
+        max_events: 4
+        refresh: "2m"
+        width: 1
+        height: 1
+      - id: "nw-fires"
+        type: "fire"
+        title: "Regional Wildfires"
+        latitude: 47.6062
+        longitude: -122.3321
+        max_radius_km: 300
+        max_events: 4
+        named_only: true
+        min_acres: 5
+        refresh: "5m"
+        width: 1
+        height: 1
+
+  southwest:
+    label: "Southwest - Huntington Beach"
+    layout: viewport
+    columns: 4
+    rows: 3
+    widgets:
+      - id: "sw-satellite"
+        type: "image"
+        title: "Pacific Southwest Satellite"
+        url: "https://cdn.star.nesdis.noaa.gov/GOES18/ABI/SECTOR/psw/GEOCOLOR/GOES18-PSW-GEOCOLOR-600x600.gif"
+        attribution: "CIRA / NOAA / NESDIS / STAR"
+        refresh: "5m"
+        width: 1
+        height: 1
+      - id: "sw-radar"
+        type: "image"
+        title: "Orange County Radar"
         url: "https://radar.weather.gov/ridge/standard/KSOX_loop.gif"
         attribution: "NOAA / National Weather Service"
         refresh: "2m"
@@ -238,9 +384,7 @@ regions:
         freshness:
           warning_after: "10m"
           expire_after: "30m"
-
-      # TILE 3
-      - id: "local-video-1"
+      - id: "sw-video-1"
         type: "camera"
         title: "Local Video 1"
         url: "https://www.youtube.com/live/mhQjsLBfOoY?si=sI7_VcT6lTWUHnvr"
@@ -249,40 +393,32 @@ regions:
         controls: true
         width: 1
         height: 1
-
-      # TILE 4
-      - id: "local-weather"
+      - id: "sw-weather"
         type: "weather"
-        title: "Local Weather"
+        title: "Huntington Beach Weather"
         latitude: 33.6595
         longitude: -117.9988
         units: "imperial"
         refresh: "10m"
         width: 1
         height: 1
-
-      # TILE 5
-      - id: "local-lightning"
+      - id: "sw-lightning"
         type: "image"
-        title: "Lightning Local"
-        url: "https://www.blitzortung.org/en/Images/image_b_ca.png"
-        attribution: "Blitzortung.org"
-        refresh: "2m"
+        title: "Southwest Lightning"
+        url: "https://cdn.star.nesdis.noaa.gov/GOES18/GLM/SECTOR/psw/EXTENT3/GOES18-PSW-EXTENT3-600x600.gif"
+        attribution: "NOAA / NESDIS / STAR"
+        refresh: "5m"
         width: 1
         height: 1
-
-      # TILE 6
-      - id: "local-precipitation"
+      - id: "sw-precipitation"
         type: "image"
-        title: "Local Precipitation"
+        title: "Southwest Precipitation"
         url: "https://graphical.weather.gov/GraphicalNDFD.php?width=515&timezone=PDT&sector=PACSOUTHWEST&element=wx&n=5"
         attribution: "NOAA / National Weather Service"
         refresh: "10m"
         width: 1
         height: 1
-
-      # TILE 7
-      - id: "local-video-2"
+      - id: "sw-video-2"
         type: "camera"
         title: "Local Video 2"
         url: "https://www.youtube.com/watch?v=RGYlFjV-dtc"
@@ -291,9 +427,7 @@ regions:
         controls: true
         width: 1
         height: 1
-
-      # TILE 8
-      - id: "hb-coastal"
+      - id: "sw-coastal"
         type: "coastal"
         title: "Beach Forecast and Tides"
         latitude: 33.6595
@@ -305,9 +439,7 @@ regions:
         refresh: "30m"
         width: 1
         height: 1
-
-      # TILE 9
-      - id: "national-forecast"
+      - id: "sw-national-forecast"
         type: "image"
         title: "National Forecast"
         url: "https://www.wpc.ncep.noaa.gov//noaa/noaa.gif"
@@ -315,9 +447,7 @@ regions:
         refresh: "15m"
         width: 1
         height: 1
-
-      # TILE 10
-      - id: "us-weather-warnings"
+      - id: "sw-us-warnings"
         type: "image"
         title: "US Weather Warnings"
         url: "https://www.weather.gov/wwamap/png/US.png"
@@ -325,11 +455,9 @@ regions:
         refresh: "5m"
         width: 1
         height: 1
-
-      # TILE 11
-      - id: "local-earthquakes"
+      - id: "sw-earthquakes"
         type: "earthquake"
-        title: "Local Earthquakes"
+        title: "Regional Earthquakes"
         latitude: 33.6595
         longitude: -117.9988
         max_radius_km: 400
@@ -339,17 +467,372 @@ regions:
         refresh: "2m"
         width: 1
         height: 1
-
-      # TILE 12
-      - id: "socal-fires"
+      - id: "sw-fires"
         type: "fire"
-        title: "Southern California Wildfires"
+        title: "Regional Wildfires"
         latitude: 33.6595
         longitude: -117.9988
         max_radius_km: 200
         max_events: 4
         named_only: true
         min_acres: 5
+        refresh: "5m"
+        width: 1
+        height: 1
+
+  midwest:
+    label: "Midwest - Kansas City"
+    layout: viewport
+    columns: 4
+    rows: 3
+    widgets:
+      - id: "mw-satellite"
+        type: "image"
+        title: "Midwest Satellite"
+        url: "https://cdn.star.nesdis.noaa.gov/GOES19/ABI/SECTOR/umv/GEOCOLOR/GOES19-UMV-GEOCOLOR-600x600.gif"
+        attribution: "CIRA / NOAA / NESDIS / STAR"
+        refresh: "5m"
+        width: 1
+        height: 1
+      - id: "mw-radar"
+        type: "image"
+        title: "Kansas City Radar"
+        url: "https://radar.weather.gov/ridge/standard/KEAX_loop.gif"
+        attribution: "NOAA / National Weather Service"
+        refresh: "2m"
+        width: 1
+        height: 1
+        freshness:
+          warning_after: "10m"
+          expire_after: "30m"
+      - id: "mw-clock"
+        type: "clock"
+        title: "Central Time"
+        timezone: "America/Chicago"
+        width: 1
+        height: 1
+      - id: "mw-weather"
+        type: "weather"
+        title: "Kansas City Weather"
+        latitude: 39.0997
+        longitude: -94.5786
+        units: "imperial"
+        refresh: "10m"
+        width: 1
+        height: 1
+      - id: "mw-lightning"
+        type: "image"
+        title: "Midwest Lightning"
+        url: "https://cdn.star.nesdis.noaa.gov/GOES19/GLM/SECTOR/umv/EXTENT3/GOES19-UMV-EXTENT3-600x600.gif"
+        attribution: "NOAA / NESDIS / STAR"
+        refresh: "5m"
+        width: 1
+        height: 1
+      - id: "mw-precipitation"
+        type: "image"
+        title: "Central Plains Precipitation"
+        url: "https://graphical.weather.gov/GraphicalNDFD.php?width=515&timezone=CDT&sector=CENTPLAINS&element=wx&n=5"
+        attribution: "NOAA / National Weather Service"
+        refresh: "10m"
+        width: 1
+        height: 1
+      - id: "mw-links"
+        type: "links"
+        title: "Kansas City Sources"
+        width: 1
+        height: 1
+        links:
+          - label: "NWS Kansas City"
+            url: "https://www.weather.gov/eax/"
+          - label: "USGS Earthquakes"
+            url: "https://earthquake.usgs.gov/"
+          - label: "NIFC"
+            url: "https://www.nifc.gov/"
+      - id: "mw-system"
+        type: "system"
+        title: "SigWatch Host"
+        refresh: "10s"
+        width: 1
+        height: 1
+      - id: "mw-national-forecast"
+        type: "image"
+        title: "National Forecast"
+        url: "https://www.wpc.ncep.noaa.gov//noaa/noaa.gif"
+        attribution: "NOAA / Weather Prediction Center"
+        refresh: "15m"
+        width: 1
+        height: 1
+      - id: "mw-us-warnings"
+        type: "image"
+        title: "US Weather Warnings"
+        url: "https://www.weather.gov/wwamap/png/US.png"
+        attribution: "NOAA / National Weather Service"
+        refresh: "5m"
+        width: 1
+        height: 1
+      - id: "mw-earthquakes"
+        type: "earthquake"
+        title: "Regional Earthquakes"
+        latitude: 39.0997
+        longitude: -94.5786
+        max_radius_km: 400
+        min_magnitude: 3.0
+        hours: 24
+        max_events: 4
+        refresh: "2m"
+        width: 1
+        height: 1
+      - id: "mw-fires"
+        type: "fire"
+        title: "Regional Wildfires"
+        latitude: 39.0997
+        longitude: -94.5786
+        max_radius_km: 300
+        max_events: 4
+        named_only: true
+        min_acres: 1
+        refresh: "5m"
+        width: 1
+        height: 1
+
+  southeast:
+    label: "Southeast - Miami"
+    layout: viewport
+    columns: 4
+    rows: 3
+    widgets:
+      - id: "se-satellite"
+        type: "image"
+        title: "Southeast Satellite"
+        url: "https://cdn.star.nesdis.noaa.gov/GOES19/ABI/SECTOR/se/GEOCOLOR/GOES19-SE-GEOCOLOR-600x600.gif"
+        attribution: "CIRA / NOAA / NESDIS / STAR"
+        refresh: "5m"
+        width: 1
+        height: 1
+      - id: "se-radar"
+        type: "image"
+        title: "Miami Radar"
+        url: "https://radar.weather.gov/ridge/standard/KAMX_loop.gif"
+        attribution: "NOAA / National Weather Service"
+        refresh: "2m"
+        width: 1
+        height: 1
+        freshness:
+          warning_after: "10m"
+          expire_after: "30m"
+      - id: "se-clock"
+        type: "clock"
+        title: "Eastern Time"
+        timezone: "America/New_York"
+        width: 1
+        height: 1
+      - id: "se-weather"
+        type: "weather"
+        title: "Miami Weather"
+        latitude: 25.7617
+        longitude: -80.1918
+        units: "imperial"
+        refresh: "10m"
+        width: 1
+        height: 1
+      - id: "se-lightning"
+        type: "image"
+        title: "Southeast Lightning"
+        url: "https://cdn.star.nesdis.noaa.gov/GOES19/GLM/SECTOR/se/EXTENT3/GOES19-SE-EXTENT3-600x600.gif"
+        attribution: "NOAA / NESDIS / STAR"
+        refresh: "5m"
+        width: 1
+        height: 1
+      - id: "se-precipitation"
+        type: "image"
+        title: "Southeast Precipitation"
+        url: "https://graphical.weather.gov/GraphicalNDFD.php?width=515&timezone=EDT&sector=SOUTHEAST&element=wx&n=5"
+        attribution: "NOAA / National Weather Service"
+        refresh: "10m"
+        width: 1
+        height: 1
+      - id: "se-links"
+        type: "links"
+        title: "Miami Sources"
+        width: 1
+        height: 1
+        links:
+          - label: "NWS Miami"
+            url: "https://www.weather.gov/mfl/"
+          - label: "USGS Earthquakes"
+            url: "https://earthquake.usgs.gov/"
+          - label: "NIFC"
+            url: "https://www.nifc.gov/"
+      - id: "se-coastal"
+        type: "coastal"
+        title: "Miami Forecast and Tides"
+        latitude: 25.7617
+        longitude: -80.1918
+        timezone: "America/New_York"
+        tide_station: "8723214"
+        forecast_days: 7
+        units: "imperial"
+        refresh: "30m"
+        width: 1
+        height: 1
+      - id: "se-national-forecast"
+        type: "image"
+        title: "National Forecast"
+        url: "https://www.wpc.ncep.noaa.gov//noaa/noaa.gif"
+        attribution: "NOAA / Weather Prediction Center"
+        refresh: "15m"
+        width: 1
+        height: 1
+      - id: "se-us-warnings"
+        type: "image"
+        title: "US Weather Warnings"
+        url: "https://www.weather.gov/wwamap/png/US.png"
+        attribution: "NOAA / National Weather Service"
+        refresh: "5m"
+        width: 1
+        height: 1
+      - id: "se-earthquakes"
+        type: "earthquake"
+        title: "Regional Earthquakes"
+        latitude: 25.7617
+        longitude: -80.1918
+        max_radius_km: 400
+        min_magnitude: 3.0
+        hours: 24
+        max_events: 4
+        refresh: "2m"
+        width: 1
+        height: 1
+      - id: "se-fires"
+        type: "fire"
+        title: "Regional Wildfires"
+        latitude: 25.7617
+        longitude: -80.1918
+        max_radius_km: 300
+        max_events: 4
+        named_only: true
+        min_acres: 1
+        refresh: "5m"
+        width: 1
+        height: 1
+
+  northeast:
+    label: "Northeast - New York City"
+    layout: viewport
+    columns: 4
+    rows: 3
+    widgets:
+      - id: "ne-satellite"
+        type: "image"
+        title: "Northeast Satellite"
+        url: "https://cdn.star.nesdis.noaa.gov/GOES19/ABI/SECTOR/ne/GEOCOLOR/GOES19-NE-GEOCOLOR-600x600.gif"
+        attribution: "CIRA / NOAA / NESDIS / STAR"
+        refresh: "5m"
+        width: 1
+        height: 1
+      - id: "ne-radar"
+        type: "image"
+        title: "New York Radar"
+        url: "https://radar.weather.gov/ridge/standard/KOKX_loop.gif"
+        attribution: "NOAA / National Weather Service"
+        refresh: "2m"
+        width: 1
+        height: 1
+        freshness:
+          warning_after: "10m"
+          expire_after: "30m"
+      - id: "ne-clock"
+        type: "clock"
+        title: "Eastern Time"
+        timezone: "America/New_York"
+        width: 1
+        height: 1
+      - id: "ne-weather"
+        type: "weather"
+        title: "New York Weather"
+        latitude: 40.7128
+        longitude: -74.0060
+        units: "imperial"
+        refresh: "10m"
+        width: 1
+        height: 1
+      - id: "ne-lightning"
+        type: "image"
+        title: "Northeast Lightning"
+        url: "https://cdn.star.nesdis.noaa.gov/GOES19/GLM/SECTOR/ne/EXTENT3/GOES19-NE-EXTENT3-600x600.gif"
+        attribution: "NOAA / NESDIS / STAR"
+        refresh: "5m"
+        width: 1
+        height: 1
+      - id: "ne-precipitation"
+        type: "image"
+        title: "Northeast Precipitation"
+        url: "https://graphical.weather.gov/GraphicalNDFD.php?width=515&timezone=EDT&sector=NORTHEAST&element=wx&n=5"
+        attribution: "NOAA / National Weather Service"
+        refresh: "10m"
+        width: 1
+        height: 1
+      - id: "ne-links"
+        type: "links"
+        title: "New York Sources"
+        width: 1
+        height: 1
+        links:
+          - label: "NWS New York"
+            url: "https://www.weather.gov/okx/"
+          - label: "USGS Earthquakes"
+            url: "https://earthquake.usgs.gov/"
+          - label: "NIFC"
+            url: "https://www.nifc.gov/"
+      - id: "ne-coastal"
+        type: "coastal"
+        title: "New York Forecast and Tides"
+        latitude: 40.7128
+        longitude: -74.0060
+        timezone: "America/New_York"
+        tide_station: "8518750"
+        forecast_days: 7
+        units: "imperial"
+        refresh: "30m"
+        width: 1
+        height: 1
+      - id: "ne-national-forecast"
+        type: "image"
+        title: "National Forecast"
+        url: "https://www.wpc.ncep.noaa.gov//noaa/noaa.gif"
+        attribution: "NOAA / Weather Prediction Center"
+        refresh: "15m"
+        width: 1
+        height: 1
+      - id: "ne-us-warnings"
+        type: "image"
+        title: "US Weather Warnings"
+        url: "https://www.weather.gov/wwamap/png/US.png"
+        attribution: "NOAA / National Weather Service"
+        refresh: "5m"
+        width: 1
+        height: 1
+      - id: "ne-earthquakes"
+        type: "earthquake"
+        title: "Regional Earthquakes"
+        latitude: 40.7128
+        longitude: -74.0060
+        max_radius_km: 400
+        min_magnitude: 3.0
+        hours: 24
+        max_events: 4
+        refresh: "2m"
+        width: 1
+        height: 1
+      - id: "ne-fires"
+        type: "fire"
+        title: "Regional Wildfires"
+        latitude: 40.7128
+        longitude: -74.0060
+        max_radius_km: 300
+        max_events: 4
+        named_only: true
+        min_acres: 1
         refresh: "5m"
         width: 1
         height: 1

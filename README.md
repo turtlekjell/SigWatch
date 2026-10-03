@@ -1,138 +1,228 @@
-#SigWatch
+# SigWatch
 
-SigWatch is a lightweight, configurable local/regional situational-awareness dashboard designed for Raspberry Pi kiosk deployments and ordinary desktop development.
+SigWatch is a lightweight, configurable situational-awareness dashboard for Raspberry Pi kiosk displays and ordinary desktop use. It combines local and regional weather, maps, live cameras, earthquakes, wildfire information, tides, forecasts, clocks, links, and system status in one browser dashboard.
 
-This repository is the first implementation prototype based on SigWatch SRS v0.2 (2026-09-18). It uses a Go backend, server-embedded HTML/CSS/vanilla JavaScript, YAML configuration, loopback-only HTTP by default, independent widget refresh, last-known-good in-memory caching, and visible stale/expired states.
+SigWatch uses a Go backend with server-embedded HTML/CSS/vanilla JavaScript, human-readable YAML configuration, loopback-only HTTP by default, independent widget refresh, persistent last-known-good caching, visible stale/expired states, and named regions.
 
-Prototype features
+## Current features
 
-YAML config with strict unknown-field validation and environment-variable expansion.
+- YAML configuration with validation and environment-variable expansion.
+- Loopback-only listener by default (`127.0.0.1:8080`).
+- Named regions with sticky browser selection.
+- Flexible CSS-grid layouts plus viewport-locked regions that fit a configured grid into one screen.
+- `clock`, `links`, `image`, `weather`, `system`, `earthquake`, `fire`, `camera`, and `coastal` widgets.
+- YouTube camera embeds with configurable autoplay, mute, and controls.
+- USGS earthquake filtering by center point, radius, magnitude, age, and event count.
+- NIFC/WFIGS wildfire filtering by center point, radius, acreage, naming, and event count.
+- Coastal widget combining NOAA tide predictions with an NWS seven-day forecast.
+- Independent external-widget refresh; no routine full-page reload.
+- In-memory and persistent last-known-good caching for supported external widgets.
+- Fresh/stale/expired states with configurable thresholds.
+- Region-level manual refresh.
+- Click-to-enlarge support for eligible image content.
+- systemd service and Raspberry Pi install helper.
+- Linux ARM64/AMD64 and developer cross-build targets.
+- Unit tests and GitHub CI.
 
-Zero runtime/library dependencies beyond the Go standard library; the built-in config reader supports the documented MVP YAML subset (mappings, lists, scalars, comments) and intentionally rejects advanced YAML features.
-
-Loopback-only listener validation.
-
-Named regions with sticky browser selection.
-
-CSS-grid widget layout with variable width/height.
-
-Clock, links, image, weather, and basic local system widgets.
-
-Independent external-widget refreshers in Go; no routine full-page reload.
-
-Last-known-good data retained after update failure.
-
-Default stale at 15 minutes / expired at 1 hour, globally configurable and per-widget overridable.
-
-Expired widgets stop presenting old primary content.
-
-Default theme separated from widget/provider logic.
-
-Content Security Policy and server-side external source retrieval.
-
-systemd unit, Chromium kiosk autostart example, Pi install helper.
-
-Unit tests and Linux ARM64/AMD64 cross-build targets.
-
-Run locally
+## Quick start
 
 Requires Go 1.23+.
 
-go mod download
-go run ./cmd/sigwatch -config ./config.yaml
-
-Open http://127.0.0.1:8080/.
-
-Validate config without starting the service:
-
+```bash
+git clone https://github.com/TurtleKjell/SigWatch.git
+cd SigWatch
 go run ./cmd/sigwatch -config ./config.yaml -check
+go run ./cmd/sigwatch -config ./config.yaml
+```
 
-Run tests:
+Open:
 
-go test ./...
+```text
+http://127.0.0.1:8080/
+```
 
-Configuration
+Run the full local verification set with:
 
-Start from examples/config.yaml. Supported MVP/prototype widgets:
+```bash
+make verify
+```
 
-clock: requires an IANA timezone such as America/Los_Angeles or UTC.
+That runs unit tests, `go vet`, and configuration validation.
 
-links: contains link label/URL pairs.
+## Configuration
 
-image: requires an HTTP(S) url; the Go server retrieves the image so source URLs are not exposed to the browser.
+The primary configuration is `config.yaml`. `examples/config.yaml` is a smaller starter example.
 
-weather: requires latitude, longitude, and optional units: imperial|metric; prototype provider is Open-Meteo.
+A region can use the normal flowing grid or a viewport-locked grid. For example:
 
-system: basic SigWatch process/host metrics.
+```yaml
+local:
+  label: "Local"
+  layout: viewport
+  columns: 4
+  rows: 3
+  widgets:
+    # widgets here
+```
 
-width and height are grid spans. External widgets accept refresh and optional per-widget freshness thresholds.
+With `layout: viewport`, SigWatch constrains the configured rows to the available browser viewport so a kiosk dashboard can remain on one page without scrolling.
 
-Freshness model
+Widget `width` and `height` values are grid spans.
 
-Freshness is measured from the last successful source update, not the last attempt.
+For portability guidance and examples, see [`docs/REGIONS.md`](docs/REGIONS.md).
 
-Fresh: before warning_after.
+The checked-in configuration ships with seven regions:
 
-Stale: retain last-known-good content, red border + textual STALE indicator.
+- **Northwest - Seattle** — city-centered Pacific Northwest weather, coastal, earthquake, and wildfire sources.
+- **Southwest - Huntington Beach** — the original 4 x 3 local dashboard, including two live camera tiles.
+- **Midwest - Kansas City** — Central Plains weather with Midwest satellite/lightning coverage.
+- **Southeast - Miami** — Southeast weather plus coastal/tide information.
+- **Northeast - New York City** — Northeast weather plus coastal/tide information.
+- **National / Radio** — national weather imagery plus solar/HAM/propagation information.
+- **Prototype** — a flexible sandbox for developing and testing widgets.
 
-Expired: after expire_after, hide old primary content and show unavailable plus last-success timestamp.
+The five geographic presets are examples, not hard-coded application behavior. Each can be duplicated and retargeted by editing coordinates, radar/GOES/NDFD sources, timezone, and (where applicable) NOAA tide station.
 
-Never successfully loaded: unavailable.
+## Widget overview
 
-Raspberry Pi deployment
+### Image
 
-The service unit is in deploy/systemd/sigwatch.service. A basic Chromium autostart desktop entry is in deploy/kiosk/sigwatch-kiosk.desktop.
+Displays an externally retrieved image or animated image. The Go backend fetches and caches the source.
 
-Cross-build for Raspberry Pi/Linux:
+Typical uses include radar, satellite, precipitation, warnings, propagation maps, and lightning imagery.
 
+### Weather
+
+Structured local weather using latitude/longitude and `imperial` or `metric` units.
+
+### Earthquake
+
+Uses USGS earthquake data and can filter by:
+
+- latitude / longitude
+- radius
+- minimum magnitude
+- age window
+- maximum displayed events
+
+### Fire
+
+Uses current NIFC/WFIGS wildfire incident data and can filter by:
+
+- latitude / longitude
+- radius
+- minimum acreage
+- named incidents only
+- maximum displayed incidents
+
+The provider is not California-specific; a different region normally requires only different coordinates, radius, and display preferences.
+
+### Camera
+
+Supports common YouTube video/live URL formats. Video is delivered directly from YouTube to the browser rather than proxied through SigWatch.
+
+### Coastal
+
+Combines two independent sources:
+
+- NOAA tide predictions for a configured tide station
+- National Weather Service seven-day forecast for configured coordinates
+
+The tide and weather halves retain independent last-known-good data so a temporary failure of one source does not erase the other.
+
+### Clock, links, and system
+
+Local/non-network utility widgets for time zones, shortcuts, and basic host/process status.
+
+## Refresh, cache, and freshness
+
+Each external widget refreshes independently.
+
+Freshness is measured from the last successful source update, not the most recent attempt.
+
+- **Fresh**: before `warning_after`.
+- **Stale**: last-known-good content remains visible with a textual/visual stale indication.
+- **Expired**: old primary content is no longer presented as current; SigWatch shows an unavailable state and the last successful update time.
+- **Never loaded**: unavailable until the first successful fetch.
+
+Supported external widgets keep last-known-good content in memory and on disk when a cache directory is configured. The Raspberry Pi systemd service uses `/var/lib/sigwatch/cache`.
+
+## Raspberry Pi OS Bookworm
+
+SigWatch has been exercised on Raspberry Pi OS Bookworm as a local systemd service. The backend can start automatically at boot even if you choose to launch Chromium manually.
+
+On the Pi, clone the repository and build:
+
+```bash
+git clone https://github.com/TurtleKjell/SigWatch.git
+cd SigWatch
+go build -o sigwatch ./cmd/sigwatch
+./sigwatch -config ./config.yaml -check
+```
+
+Install and enable the service:
+
+```bash
+sudo ./scripts/install-pi.sh ./sigwatch ./config.yaml
+```
+
+The installer places the application under `/opt/sigwatch`, the configuration under `/etc/sigwatch`, the persistent cache under `/var/lib/sigwatch`, and enables `sigwatch.service` so the backend starts after reboot.
+
+Check it with:
+
+```bash
+systemctl status sigwatch --no-pager
+curl http://127.0.0.1:8080/healthz
+```
+
+To open the dashboard manually in Chromium kiosk mode:
+
+```bash
+chromium --kiosk http://127.0.0.1:8080/
+```
+
+Browser autostart is intentionally left as an optional deployment choice because Raspberry Pi desktop/session behavior can vary. A prototype desktop entry remains under `deploy/kiosk/` for users who want to adapt it.
+
+## Build targets
+
+Build locally:
+
+```bash
+make build
+```
+
+Cross-build Linux ARM64 and AMD64:
+
+```bash
 make cross
+```
 
-Convenience developer builds for Apple Silicon macOS and Windows AMD64:
+Developer builds for Apple Silicon macOS and Windows AMD64:
 
+```bash
 make dev-cross
+```
 
-On a Raspberry Pi, copy the ARM64 binary and repository deployment files, then:
+## Security posture
 
-sudo ./scripts/install-pi.sh ./dist/sigwatch-linux-arm64 ./examples/config.yaml
+SigWatch rejects non-loopback listen addresses in the current baseline. Remote/LAN administration is intentionally outside the v1 design.
 
-The exact supported Pi model/OS and desktop-session-specific kiosk installation remain prototype-test decisions, matching the SRS TBDs.
+External sources are treated as untrusted input and fetched with timeouts/size limits where applicable. Camera embeds are restricted to supported YouTube URL forms rather than arbitrary iframe URLs.
 
-Security posture
+Example configuration must not contain private credentials or secrets.
 
-The prototype rejects non-loopback listen addresses. Remote/LAN access is intentionally not part of the MVP. External sources are fetched server-side with response-size limits and timeouts. Example configuration contains no credentials.
+## Data sources and attribution
 
-Data sources and licensing
+The checked-in configuration demonstrates several public sources, including NOAA/NWS, NOAA/NESDIS/STAR, USGS, NIFC/WFIGS, NOAA Tides & Currents, HAMQSL/N0NBH, Blitzortung/LightningMaps, and third-party video/propagation providers. Each integration has its own terms, attribution requirements, rate limits, and availability characteristics.
 
-The optional prototype weather widget uses Open-Meteo. Other image/data sources are user-configured and must be reviewed for their own usage terms, attribution requirements, rate limits, and redistribution/content rights. The sample links point to authoritative public sites but are not endorsements.
+See [`docs/SOURCES.md`](docs/SOURCES.md) for the bundled-source inventory and refresh notes.
 
-Project license is intentionally not selected yet because the SRS marks the license as TBD before public release. Choose a license before making the GitHub repository public.
+SigWatch does not replace authoritative emergency channels and does not guarantee that every upstream incident or warning is complete or current.
 
-Known prototype gaps
+## License
 
-No persistent last-known-good cache across process/device reboots yet.
+SigWatch is released under the MIT License. See [`LICENSE`](LICENSE).
 
-No earthquake, wildfire, public-alert, radar-provider, or radio-specific provider yet; the SRS leaves the first public provider set to implementation selection.
+## Project status
 
-System widget is intentionally basic and does not yet read Raspberry Pi temperature, load average, disk wear, or undervoltage flags.
-
-Pi kiosk setup varies by Raspberry Pi OS release/desktop; the provided desktop entry is scaffolding rather than a fully tested OS image recipe.
-
-No graphical configuration editor or hot reload (both post-MVP/deferred in the SRS).
-
-Suggested next test loop
-
-Run on macOS/Windows/Linux desktop using config.yaml.
-
-Exercise config validation by intentionally breaking a field.
-
-Test multi-region selection and reload persistence.
-
-Add one permitted remote image source and test refresh/failure/stale behavior with short temporary thresholds (for example 30s/1m).
-
-Cross-build ARM64 and deploy to the target Raspberry Pi.
-
-Measure CPU/memory and settle the minimum supported Pi and baseline display resolution.
-
-Included prototype sources
-
-The checked-in prototype configuration includes the official NOAA/National Weather Service KSOX animated radar GIF as the image-widget example and labels its source in the UI. The image URL is still configuration, not hard-coded provider logic, so it can be replaced with another permitted source.
+The current 0.1.x series is the release-candidate phase for the first stable v1.0 release. The core application and Local dashboard are usable; remaining work is focused on repository cleanup, source/configuration cleanup, documentation, and final release verification rather than major new features.

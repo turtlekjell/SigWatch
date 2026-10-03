@@ -10,4 +10,6 @@ install -m 0640 -o root -g sigwatch "$CONFIG" /etc/sigwatch/config.yaml
 install -m 0644 deploy/systemd/sigwatch.service /etc/systemd/system/sigwatch.service
 systemctl daemon-reload
 systemctl enable --now sigwatch.service
-echo "SigWatch service installed. Kiosk autostart is documented separately in README.md."
+echo "SigWatch service installed and enabled for reboot."
+echo "Dashboard: http://127.0.0.1:8080/"
+echo "Manual Chromium kiosk: chromium --kiosk http://127.0.0.1:8080/"

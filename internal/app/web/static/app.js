@@ -52,7 +52,6 @@ function render() {
   dashboard.innerHTML = '';
   const region = state.config.regions[renderedRegion];
   const viewport = region.layout === 'viewport';
-  dashboard.classList.toggle('maps-grid', renderedRegion === 'maps' && !viewport);
   dashboard.classList.toggle('viewport-grid', viewport);
   dashboard.dataset.region = renderedRegion;
   if (viewport) {

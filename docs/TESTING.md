@@ -1,66 +1,94 @@
-# SigWatch Prototype Test Plan
+# SigWatch Release-Candidate Test Plan
 
-This plan turns the SRS v0.2 acceptance evidence into a practical prototype test loop.
+This test plan covers the current 0.1.x release-candidate baseline.
 
-## 1. Desktop smoke test
+## 1. Full local verification
+
+```bash
+make verify
+```
+
+Equivalent commands:
 
 ```bash
 go test ./...
+go vet ./...
+go run ./cmd/sigwatch -config ./config.yaml -check
+```
+
+## 2. Desktop smoke test
+
+```bash
 go run ./cmd/sigwatch -config ./config.yaml
 ```
 
-Open `http://127.0.0.1:8080/`. Confirm:
+Open `http://127.0.0.1:8080/` and confirm:
 
-- Dark default theme loads.
-- Weather, local clock, UTC clock, host status, and source links render.
-- The page does not routinely reload.
-- `/healthz` returns JSON with `status: ok`.
+- Default region loads.
+- Local, National / Radio, and Prototype regions all switch cleanly.
+- Region switching works and persists after browser reload.
+- Local and National / Radio viewport regions fit their 4 x 3 grids without page scrolling at the intended landscape resolution.
+- Image widgets render and eligible images can be enlarged/closed.
+- Weather, earthquake, fire, coastal, camera, clock, links, and system widgets used by the checked-in configuration render without breaking unrelated widgets.
+- `/healthz` returns an OK response.
 
-## 2. Configuration validation
+## 3. Configuration validation
 
 ```bash
 go run ./cmd/sigwatch -config ./config.yaml -check
 ```
 
-Then copy the config, introduce each of these defects one at a time, and verify startup fails with an actionable field path:
+When changing config parsing or validation, exercise representative failures such as:
 
 - Unknown key.
 - Non-loopback `listen` address.
-- Unknown clock timezone.
+- Unknown timezone.
 - Duplicate widget ID.
-- Weather widget missing latitude/longitude.
+- Missing required coordinates/provider settings.
+- Invalid viewport rows/columns.
 - `warning_after >= expire_after`.
 
-## 3. Region persistence
+## 4. Refresh isolation
 
-Add a second region to `config.yaml`, restart SigWatch, choose it in the selector, then reload the browser. The selected region should persist through browser local storage. Remove that region from the YAML and restart; the UI should fall back to `default_region`.
+Confirm externally refreshed widgets update independently and that the page does not routinely reload.
 
-## 4. Independent refresh
+Use the region-level Refresh control and verify supported external widgets update without restarting camera embeds or breaking unrelated widgets.
 
-Configure two external widgets with visibly different refresh intervals, such as system at `10s` and weather at `1m`. Watch the widget timestamps/statuses. They should update independently without a full-page reload.
+## 5. Persistent cache and offline behavior
 
-## 5. Failure / stale / expired behavior
+1. Start SigWatch online and let cacheable widgets load successfully.
+2. Stop SigWatch.
+3. Disconnect Internet access.
+4. Restart SigWatch using the same cache directory.
+5. Confirm last-known-good cacheable content is restored.
+6. Confirm freshness indicators age into stale/expired states according to policy.
+7. Confirm one failed provider does not prevent unrelated widgets or the server from running.
 
-For a fast manual test, temporarily set:
+For a fast freshness test, temporarily use short thresholds, then restore normal values afterward.
 
-```yaml
-freshness:
-  warning_after: "30s"
-  expire_after: "1m"
-```
+## 6. Structured-provider checks
 
-Use an image widget pointed at a small permitted HTTP(S) image source. Let it load successfully, then make the source fail (for example, change the upstream service or disconnect Internet without restarting SigWatch).
+### Earthquake
 
-Expected:
+Confirm center/radius, minimum magnitude, time window, event count, and event links behave as configured.
 
-1. Last-known-good content remains initially.
-2. At 30 seconds since the last successful update, the widget shows a red border and textual `STALE` state.
-3. At 1 minute, old primary content is hidden and the widget shows unavailable plus the last successful timestamp.
-4. Other widgets continue operating.
+### Fire
 
-Restore normal 15m/1h thresholds after the test.
+Confirm radius, `named_only`, `min_acres`, event count, containment display, incident links, and empty/no-current-incident behavior.
 
-## 6. Loopback security check
+### Coastal
+
+Confirm tide predictions and seven-day forecast both render. Test or simulate a failure of one source and verify the other half can remain current/available independently.
+
+### Camera
+
+Confirm supported YouTube URL forms render in the browser and autoplay/mute/control settings behave as expected for the browser environment.
+
+### National / Radio
+
+Confirm the current national NOAA imagery loads, the HAMQSL panels are legible, UTC/system/link widgets render, and no retired Maps-only layout behavior is required. A single unavailable image source must not break the other eleven tiles.
+
+## 7. Loopback security check
 
 From the SigWatch host:
 
@@ -68,28 +96,31 @@ From the SigWatch host:
 curl http://127.0.0.1:8080/healthz
 ```
 
-From another LAN host, connection to the SigWatch machine on port 8080 should fail under the default configuration because the service is bound only to loopback.
+From another LAN host, direct access to port 8080 should fail under the default loopback-only configuration.
 
-## 7. Cross-build
+## 8. Cross-build
 
 ```bash
 make cross
 file dist/sigwatch-linux-arm64 dist/sigwatch-linux-amd64
 ```
 
-## 8. Raspberry Pi prototype
+## 9. Raspberry Pi OS Bookworm
 
-After choosing the test Pi and Raspberry Pi OS release:
+On the Pi:
 
-1. Copy the ARM64 binary and repository deployment files.
-2. Install the systemd service using `scripts/install-pi.sh`.
-3. Install the Chromium kiosk autostart entry appropriate to the desktop session.
-4. Cold reboot.
-5. Confirm SigWatch service and Chromium return without manual navigation.
-6. Kill the SigWatch process and confirm systemd restarts it.
-7. Reboot with Internet disconnected and confirm the dashboard still starts with network widgets unavailable/cached rather than crashing.
-8. Record CPU, memory, temperature, display resolution, and Chromium responsiveness for the Pi-model decision.
+1. Build SigWatch from a clean clone.
+2. Validate `config.yaml`.
+3. Install with `sudo ./scripts/install-pi.sh ./sigwatch ./config.yaml`.
+4. Confirm `systemctl status sigwatch --no-pager` reports the service active.
+5. Reboot and confirm the SigWatch backend starts automatically.
+6. Launch the dashboard manually with `chromium --kiosk http://127.0.0.1:8080/`.
+7. Confirm the Local viewport fits the display and both video streams remain usable.
+8. Confirm persistent cache survives a service/device restart.
+9. Reboot without Internet and confirm SigWatch starts rather than crashing.
 
-## 9. GitHub CI
+Automatic Chromium launch is optional for the v1 baseline and can be documented separately after a preferred Bookworm desktop-session method is settled.
 
-After pushing to GitHub, the included workflow runs formatting, `go vet`, unit tests, and Linux AMD64/ARM64 builds on every push and pull request.
+## 10. GitHub CI
+
+After pushing, confirm the included workflow passes formatting checks, `go vet`, unit tests, and Linux AMD64/ARM64 builds.

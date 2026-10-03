@@ -1,4 +1,4 @@
-.PHONY: build test run check fmt cross dev-cross
+.PHONY: build test run check verify fmt cross dev-cross
 build:
 	go build -o sigwatch ./cmd/sigwatch
 run:
@@ -7,6 +7,10 @@ check:
 	go run ./cmd/sigwatch -config ./config.yaml -check
 test:
 	go test ./...
+verify:
+	go test ./...
+	go vet ./...
+	go run ./cmd/sigwatch -config ./config.yaml -check
 fmt:
 	gofmt -w $$(find . -name '*.go')
 cross:
