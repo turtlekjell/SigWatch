@@ -23,8 +23,8 @@ Status meanings: **Implemented** = present in source and testable now; **Partial
 | FR-040–044 independent refresh/failure isolation | Implemented core | Per-widget Go refresh goroutines, bounded HTTP timeout; synchronized-burst jitter not yet implemented. |
 | FR-045–052 freshness/cache | Implemented | Last-known-good retained in memory and persisted to disk for supported external widgets; stale/expired transitions and per-widget overrides are supported. |
 | FR-060–064 browser communication/security | Implemented | Local HTTP, per-widget API polling, no framework, no arbitrary filesystem route. |
-| FR-070–075 themes | Implemented core | Default theme contract is separate; missing themes fail startup. Second real theme not yet bundled. |
-| FR-080–084 regions | Implemented | Named regions, selector, localStorage persistence, fallback to default. |
+| FR-070–075 themes | Implemented | Theme contract is separate from widget/provider logic; `default`, `light`, `midnight`, and `amber` are bundled, missing themes fail startup, and the browser Settings panel can apply a local theme override without changing provider logic. |
+| FR-080–084 regions | Implemented | Named regions, selector, localStorage persistence, fallback to default, and a browser Settings control for the display's preferred starting region. |
 | UI-001–007 glanceability/status | Implemented core | Responsive kiosk-oriented layout and textual + visual freshness states; target display validation remains. |
 | PI-001 | TBD | Pi model/OS requires prototype hardware testing. |
 | PI-002–006 | Partial | systemd service/install flow has been exercised on Raspberry Pi OS Bookworm; browser kiosk autostart remains an optional deployment choice and full unattended power-restoration testing is still pending. |

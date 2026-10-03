@@ -25,14 +25,26 @@ go run ./cmd/sigwatch -config ./config.yaml
 Open `http://127.0.0.1:8080/` and confirm:
 
 - Default region loads.
-- Local, National / Radio, and Prototype regions all switch cleanly.
+- Northwest, Southwest, Midwest, Southeast, Northeast, National / Radio, and Prototype regions all switch cleanly.
 - Region switching works and persists after browser reload.
 - Local and National / Radio viewport regions fit their 4 x 3 grids without page scrolling at the intended landscape resolution.
 - Image widgets render and eligible images can be enlarged/closed.
 - Weather, earthquake, fire, coastal, camera, clock, links, and system widgets used by the checked-in configuration render without breaking unrelated widgets.
 - `/healthz` returns an OK response.
 
-## 3. Configuration validation
+## 3. Theme smoke test
+
+For each bundled theme (`default`, `light`, `midnight`, `amber`):
+
+1. Set the root `theme` value in `config.yaml`.
+2. Run `go run ./cmd/sigwatch -config ./config.yaml -check`.
+3. Start SigWatch and spot-check Local and National / Radio.
+4. Confirm text, borders, freshness states, links, controls, images, cameras, and dialogs remain legible.
+5. Restore the desired default theme when finished.
+
+Automated tests also verify that all four bundled themes are embedded and accepted at startup.
+
+## 4. Configuration validation
 
 ```bash
 go run ./cmd/sigwatch -config ./config.yaml -check
@@ -48,13 +60,13 @@ When changing config parsing or validation, exercise representative failures suc
 - Invalid viewport rows/columns.
 - `warning_after >= expire_after`.
 
-## 4. Refresh isolation
+## 5. Refresh isolation
 
 Confirm externally refreshed widgets update independently and that the page does not routinely reload.
 
 Use the region-level Refresh control and verify supported external widgets update without restarting camera embeds or breaking unrelated widgets.
 
-## 5. Persistent cache and offline behavior
+## 6. Persistent cache and offline behavior
 
 1. Start SigWatch online and let cacheable widgets load successfully.
 2. Stop SigWatch.
@@ -66,7 +78,7 @@ Use the region-level Refresh control and verify supported external widgets updat
 
 For a fast freshness test, temporarily use short thresholds, then restore normal values afterward.
 
-## 6. Structured-provider checks
+## 7. Structured-provider checks
 
 ### Earthquake
 
@@ -82,13 +94,13 @@ Confirm tide predictions and seven-day forecast both render. Test or simulate a 
 
 ### Camera
 
-Confirm supported YouTube URL forms render in the browser and autoplay/mute/control settings behave as expected for the browser environment.
+Confirm both bundled camera tiles in each geographic region render in the browser, and verify autoplay/mute/control settings behave as expected for the browser environment. Because third-party livestream IDs can rotate, a failed camera should be treated as a configuration/source-maintenance issue rather than a failure of unrelated widgets. Spot-check the two Huntington Beach camera tiles and the Seattle Space Needle example. A single unavailable public livestream must not break the rest of the region.
 
 ### National / Radio
 
 Confirm the current national NOAA imagery loads, the HAMQSL panels are legible, UTC/system/link widgets render, and no retired Maps-only layout behavior is required. A single unavailable image source must not break the other eleven tiles.
 
-## 7. Loopback security check
+## 8. Loopback security check
 
 From the SigWatch host:
 
@@ -98,14 +110,14 @@ curl http://127.0.0.1:8080/healthz
 
 From another LAN host, direct access to port 8080 should fail under the default loopback-only configuration.
 
-## 8. Cross-build
+## 9. Cross-build
 
 ```bash
 make cross
 file dist/sigwatch-linux-arm64 dist/sigwatch-linux-amd64
 ```
 
-## 9. Raspberry Pi OS Bookworm
+## 10. Raspberry Pi OS Bookworm
 
 On the Pi:
 
@@ -121,6 +133,10 @@ On the Pi:
 
 Automatic Chromium launch is optional for the v1 baseline and can be documented separately after a preferred Bookworm desktop-session method is settled.
 
-## 10. GitHub CI
+## 11. GitHub CI
 
 After pushing, confirm the included workflow passes formatting checks, `go vet`, unit tests, and Linux AMD64/ARM64 builds.
+
+## Browser settings
+
+Verify Theme and Default Region persistence through the Settings panel and confirm clearing localStorage restores YAML fallbacks.

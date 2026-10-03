@@ -20,6 +20,8 @@ SigWatch uses a Go backend with server-embedded HTML/CSS/vanilla JavaScript, hum
 - Fresh/stale/expired states with configurable thresholds.
 - Region-level manual refresh.
 - Click-to-enlarge support for eligible image content.
+- Four bundled themes: `default`, `light`, `midnight`, and `amber`.
+- Header Settings panel for browser-local Theme and Default Region preferences.
 - systemd service and Raspberry Pi install helper.
 - Linux ARM64/AMD64 and developer cross-build targets.
 - Unit tests and GitHub CI.
@@ -73,15 +75,38 @@ For portability guidance and examples, see [`docs/REGIONS.md`](docs/REGIONS.md).
 
 The checked-in configuration ships with seven regions:
 
-- **Northwest - Seattle** — city-centered Pacific Northwest weather, coastal, earthquake, and wildfire sources.
-- **Southwest - Huntington Beach** — the original 4 x 3 local dashboard, including two live camera tiles.
-- **Midwest - Kansas City** — Central Plains weather with Midwest satellite/lightning coverage.
-- **Southeast - Miami** — Southeast weather plus coastal/tide information.
-- **Northeast - New York City** — Northeast weather plus coastal/tide information.
+- **Northwest - Seattle** — Pacific Northwest weather, coastal data, hazards, and two live camera examples.
+- **Southwest - Huntington Beach** — the original 4 x 3 local dashboard, including its two validated live camera tiles.
+- **Midwest - Kansas City** — Central Plains weather, hazards, and two local live camera examples.
+- **Southeast - Miami** — Southeast weather, coastal/tide data, hazards, and two Miami live camera examples.
+- **Northeast - New York City** — Northeast weather, coastal/tide data, hazards, and two New York live camera examples.
 - **National / Radio** — national weather imagery plus solar/HAM/propagation information.
 - **Prototype** — a flexible sandbox for developing and testing widgets.
 
 The five geographic presets are examples, not hard-coded application behavior. Each can be duplicated and retargeted by editing coordinates, radar/GOES/NDFD sources, timezone, and (where applicable) NOAA tide station.
+
+### Themes
+
+SigWatch ships with four appearance-only themes:
+
+- `default` — the original dark SigWatch theme.
+- `light` — a bright neutral theme for daytime/office displays.
+- `midnight` — a deeper navy/black dark theme for TVs and low-light rooms.
+- `amber` — a warm terminal/radio-console inspired dark theme.
+
+For the easiest per-display setup, use **⚙ Settings** in the dashboard header. Theme changes apply immediately and both Theme and Default Region are remembered in that browser using local storage. This does not rewrite `config.yaml`; YAML remains the system-wide fallback for new browser profiles or cleared browser data.
+
+You can still select the system-wide fallback theme in YAML:
+
+```yaml
+theme: "midnight"
+```
+
+Themes change colors, borders, and shadows only; region layout, widget behavior, freshness states, and providers are unchanged. See [`docs/THEMES.md`](docs/THEMES.md).
+
+Every tile in those presets is also just an example. A user can replace an earthquake tile with a different camera, alert, map, or future provider without changing the region system. Earthquakes are naturally more prominent in some parts of the country than others; the bundled East Coast/Southeast earthquake tiles are retained mainly to demonstrate that the USGS widget is geographically portable. Future hazard-focused presets such as hurricane/tropical-weather and tornado/severe-weather dashboards are good post-v1 candidates rather than v1 requirements.
+
+Each geographic preset includes two YouTube camera examples. For the non-Huntington Beach presets, the bundled choices were selected from streams that were actively embedded/online during the v1 release audit. Public livestream IDs can still rotate or disappear over time, so the camera URLs are intentionally easy to replace in `config.yaml`.
 
 ## Widget overview
 
@@ -213,7 +238,7 @@ Example configuration must not contain private credentials or secrets.
 
 ## Data sources and attribution
 
-The checked-in configuration demonstrates several public sources, including NOAA/NWS, NOAA/NESDIS/STAR, USGS, NIFC/WFIGS, NOAA Tides & Currents, HAMQSL/N0NBH, Blitzortung/LightningMaps, and third-party video/propagation providers. Each integration has its own terms, attribution requirements, rate limits, and availability characteristics.
+The checked-in configuration demonstrates several public sources, including NOAA/NWS, NOAA/NESDIS/STAR, USGS, NIFC/WFIGS, NOAA Tides & Currents, HAMQSL/N0NBH, and selected third-party video/propagation providers. Each integration has its own terms, attribution requirements, rate limits, and availability characteristics.
 
 See [`docs/SOURCES.md`](docs/SOURCES.md) for the bundled-source inventory and refresh notes.
 

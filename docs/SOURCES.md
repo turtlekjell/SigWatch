@@ -19,7 +19,20 @@ The checked-in configuration keeps NOAA/NWS attribution visible on the relevant 
 
 Used for GOES satellite imagery.
 
-The National / Radio region uses GOES-East / GOES-19 CONUS GeoColor imagery. The five city presets use matched regional GeoColor and GLM lightning-over-GeoColor sectors: GOES-18 Pacific Northwest and Pacific Southwest, plus GOES-19 Upper Mississippi Valley, Southeast, and Northeast. Satellite image availability may be interrupted by upstream maintenance; SigWatch's last-known-good cache/freshness handling is intended to make those interruptions visible without breaking the dashboard.
+The National / Radio region uses GOES-East / GOES-19 CONUS GeoColor imagery. Regional satellite tiles remain city/region specific. Lightning imagery is handled separately through Blitzortung fixed maps rather than the GOES GLM overlays. Satellite availability may be interrupted by upstream maintenance; SigWatch's last-known-good cache/freshness handling is intended to make those interruptions visible without breaking the dashboard.
+
+## Blitzortung.org
+
+Used for the bundled lightning tiles. Blitzortung provides a national North America/USA fixed map plus regional fixed maps. SigWatch uses:
+
+- National / Radio — `image_b_us.png`
+- Northwest / Seattle — `image_b_us.png` (no dedicated Pacific Northwest fixed map is offered in the standard regional menu)
+- Southwest / Huntington Beach — `image_b_ca.png`
+- Midwest / Kansas City — `image_b_mn.png`
+- Southeast / Miami — `image_b_fl.png`
+- Northeast / New York City — `image_b_ny.png`
+
+The fixed maps show recent lightning activity and identify Blitzortung.org contributors on the rendered image. Blitzortung states that images marked CC BY-SA may be included on other websites under that license. SigWatch therefore keeps Blitzortung contributor / CC BY-SA attribution visible in each widget. Blitzortung is a community project and is not an official warning service.
 
 ## NOAA Tides & Currents
 
@@ -44,13 +57,13 @@ Used by the National / Radio region for:
 
 HAMQSL asks users of its displayed data/panels to preserve source credit. SigWatch therefore identifies HAMQSL/N0NBH in the widget attribution. HAMQSL documents different update intervals for different measurements; the checked-in configuration intentionally refreshes these panels more slowly than ordinary radar/lightning imagery.
 
-## Blitzortung / LightningMaps
-
-Used by the National / Radio region for the U.S. lightning overview. The five city presets use NOAA GOES GLM sector imagery for their local lightning tiles. Blitzortung/LightningMaps is a third-party community source rather than an official government warning service.
-
 ## YouTube camera streams
 
-The Southwest - Huntington Beach region demonstrates supported YouTube live/video embeds. YouTube content is delivered directly to the browser; SigWatch does not proxy or persist the video stream. Stream IDs and availability are controlled by the channel owner/provider and may change over time. Other bundled city presets avoid hard-coding webcam IDs so the default configuration remains more durable.
+Each bundled geographic preset contains two YouTube camera examples. The Huntington Beach pair was validated during development; the Seattle, Kansas City, Miami, and New York replacements were refreshed during the v1 release audit from sources that were actively embedding or reporting the streams online.
+
+Current examples include Seattle Space Needle and Waterfront views, Kansas City downtown and Zoo polar-bear views, PortMiami and Coral City, plus New York Times Square North and a rotating city-camera feed.
+
+YouTube content is delivered directly to the browser; SigWatch does not proxy or persist the video stream. Stream IDs and embed permissions are controlled by the channel owner/provider and may change over time, so users should replace stale or unavailable cameras in `config.yaml`.
 
 ## Source maintenance
 

@@ -93,7 +93,7 @@ Examples include:
 - NWS radar site loops
 - GOES-East vs GOES-West sectors
 - regional precipitation products
-- regional lightning images
+- regional lightning images (for example Blitzortung fixed maps)
 - state/region-specific maps
 
 These are configuration changes rather than new SigWatch provider code.
@@ -107,7 +107,7 @@ The v1 configuration includes a `national` viewport region using a 4 x 3 grid. I
 2. National forecast
 3. U.S. weather warnings
 4. GOES-East CONUS satellite
-5. U.S. lightning
+5. U.S. lightning (Blitzortung national fixed map)
 6. HAMQSL solar/day-night map
 7. HAMQSL HF/VHF conditions
 8. Current solar image
@@ -132,9 +132,11 @@ SigWatch v1 includes five city-centered U.S. examples using the same provider fr
 
 Weather, earthquake, and fire widgets are centered on the listed city coordinates. The regional image widgets use the closest practical bundled radar, GOES, and NDFD sectors rather than pretending the city itself is the center of those upstream products.
 
-The Southwest preset retains two Huntington Beach YouTube camera tiles because those streams were specifically validated during development. The other city presets intentionally use durable clock/source-link utility tiles rather than shipping webcam IDs that may disappear or rotate without notice.
+Each city preset includes two example YouTube camera tiles. The v1 release audit refreshed the non-Huntington Beach examples against streams that were currently embedded or reported online. They remain illustrative rather than permanent dependencies: public livestream IDs can rotate, disappear, or disable embedding, and users are expected to swap them for local streams they prefer.
 
 The Midwest preset is inland, so its eighth tile uses SigWatch host status instead of the coastal/tides widget.
+
+The earthquake tile remains in all five regional examples to demonstrate the portability of the USGS widget, even though earthquakes are less operationally central in some eastern regions. Presets are not fixed schemas: users can replace that tile with another camera, alert, map, or future provider. Hurricane/tropical-weather and tornado/severe-weather presets are explicitly reasonable post-v1 additions.
 
 ## Recommended bundled regions for v1
 

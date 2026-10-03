@@ -78,3 +78,19 @@
 .warning-text{color:var(--warning)}
 .coastal-part-empty{display:flex;min-height:72px;align-items:center;justify-content:center;text-align:center;color:var(--muted);font-size:.8rem}
 @media(max-width:900px){.tide-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.forecast-grid{grid-template-columns:repeat(7,minmax(82px,1fr))}}
+
+/* Browser-local settings panel. */
+.settings-button,.secondary-button,.primary-button,.settings-close{border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font:inherit;cursor:pointer}
+.settings-button{padding:6px 10px;font-size:.82rem}.settings-button:hover,.secondary-button:hover,.settings-close:hover{border-color:var(--accent)}
+.settings-dialog{width:min(92vw,560px);padding:0;border:1px solid var(--border);border-radius:var(--radius);background:var(--panel);color:var(--text);box-shadow:0 24px 80px rgba(0,0,0,.55)}
+.settings-dialog::backdrop{background:rgba(0,0,0,.7)}
+.settings-form{display:flex;flex-direction:column;min-width:0}
+.settings-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:16px 18px;border-bottom:1px solid var(--border)}
+.settings-header strong{font-size:1.05rem}.settings-subtitle{margin-top:3px;color:var(--muted);font-size:.78rem}
+.settings-close{width:34px;height:34px;font-size:1.25rem;line-height:1}
+.settings-body{display:grid;gap:16px;padding:18px}
+.settings-field{display:grid;gap:7px}.settings-field>span{font-weight:700}.settings-field small{color:var(--muted);line-height:1.35}
+.settings-field select,#region-select{border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font:inherit;padding:7px 9px}
+.settings-footer{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 18px;border-top:1px solid var(--border)}
+.settings-note{color:var(--muted);font-size:.75rem}.settings-actions{display:flex;gap:8px}.secondary-button,.primary-button{padding:7px 12px}.primary-button{background:var(--accent);color:var(--bg);border-color:var(--accent);font-weight:750}
+@media(max-width:700px){.health{display:none}.topbar-right{gap:6px}.settings-button{padding:6px 8px}.settings-footer{align-items:flex-end;flex-direction:column}.settings-note{align-self:flex-start}}

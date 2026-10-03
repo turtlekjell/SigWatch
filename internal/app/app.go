@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -23,7 +24,7 @@ import (
 	"sigwatch/internal/provider"
 )
 
-//go:embed web/* web/static/* web/themes/default/*
+//go:embed web/* web/static/* web/themes/default/* web/themes/light/* web/themes/midnight/* web/themes/amber/*
 var assets embed.FS
 
 type widgetState struct {
@@ -373,6 +374,25 @@ func cameraEmbedURL(w config.Widget) string {
 	return "https://www.youtube.com/embed/" + id + "?" + q.Encode()
 }
 
+func installedThemes() []string {
+	entries, err := fs.ReadDir(assets, "web/themes")
+	if err != nil {
+		return nil
+	}
+	themes := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if _, err := fs.Stat(assets, "web/themes/"+name+"/theme.css"); err == nil {
+			themes = append(themes, name)
+		}
+	}
+	sort.Strings(themes)
+	return themes
+}
+
 func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -391,7 +411,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		}
 		regions[rn] = sr
 	}
-	writeJSON(w, map[string]any{"title": s.cfg.Title, "theme": s.cfg.Theme, "default_region": s.cfg.DefaultRegion, "regions": regions})
+	writeJSON(w, map[string]any{"title": s.cfg.Title, "theme": s.cfg.Theme, "themes": installedThemes(), "default_region": s.cfg.DefaultRegion, "regions": regions})
 }
 func (s *Server) widgetConfig(region, id string) (config.Widget, bool) {
 	rr, ok := s.cfg.Regions[region]

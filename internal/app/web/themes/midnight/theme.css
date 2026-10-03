@@ -1,0 +1,1 @@
+:root{--bg:#050812;--panel:#0a1020;--surface:#111a2e;--text:#edf4ff;--muted:#93a4bf;--accent:#62a8ff;--border:#1d2b46;--warning:#ff5d5d;--danger:#ff7373;--radius:12px;--shadow:0 10px 30px rgba(0,0,0,.32)}select{background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:7px;padding:6px 8px}

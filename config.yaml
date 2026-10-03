@@ -160,8 +160,8 @@ regions:
       - id: "lightning-usa"
         type: "image"
         title: "US Lightning"
-        url: "https://images.lightningmaps.org/blitzortung/america/index.php?animation=usa"
-        attribution: "LightningMaps.org / Blitzortung.org"
+        url: "https://www.blitzortung.org/en/Images/image_b_us.png"
+        attribution: "Blitzortung.org Contributors / CC BY-SA 4.0"
         refresh: "2m"
         width: 1
         height: 1
@@ -263,10 +263,13 @@ regions:
         freshness:
           warning_after: "10m"
           expire_after: "30m"
-      - id: "nw-clock"
-        type: "clock"
-        title: "Pacific Time"
-        timezone: "America/Los_Angeles"
+      - id: "nw-video-1"
+        type: "camera"
+        title: "Seattle Video 1 - Space Needle"
+        url: "https://www.youtube.com/watch?v=3vaBjcxyQT8"
+        autoplay: true
+        muted: true
+        controls: true
         width: 1
         height: 1
       - id: "nw-weather"
@@ -280,10 +283,10 @@ regions:
         height: 1
       - id: "nw-lightning"
         type: "image"
-        title: "Northwest Lightning"
-        url: "https://cdn.star.nesdis.noaa.gov/GOES18/GLM/SECTOR/pnw/EXTENT3/GOES18-PNW-EXTENT3-600x600.gif"
-        attribution: "NOAA / NESDIS / STAR"
-        refresh: "5m"
+        title: "US Lightning"
+        url: "https://www.blitzortung.org/en/Images/image_b_us.png"
+        attribution: "Blitzortung.org Contributors / CC BY-SA 4.0"
+        refresh: "2m"
         width: 1
         height: 1
       - id: "nw-precipitation"
@@ -294,18 +297,15 @@ regions:
         refresh: "10m"
         width: 1
         height: 1
-      - id: "nw-links"
-        type: "links"
-        title: "Seattle Sources"
+      - id: "nw-video-2"
+        type: "camera"
+        title: "Seattle Video 2 - Waterfront"
+        url: "https://www.youtube.com/watch?v=NqOmHpwMUxs"
+        autoplay: true
+        muted: true
+        controls: true
         width: 1
         height: 1
-        links:
-          - label: "NWS Seattle"
-            url: "https://www.weather.gov/sew/"
-          - label: "USGS Earthquakes"
-            url: "https://earthquake.usgs.gov/"
-          - label: "NIFC"
-            url: "https://www.nifc.gov/"
       - id: "nw-coastal"
         type: "coastal"
         title: "Seattle Forecast and Tides"
@@ -405,9 +405,9 @@ regions:
       - id: "sw-lightning"
         type: "image"
         title: "Southwest Lightning"
-        url: "https://cdn.star.nesdis.noaa.gov/GOES18/GLM/SECTOR/psw/EXTENT3/GOES18-PSW-EXTENT3-600x600.gif"
-        attribution: "NOAA / NESDIS / STAR"
-        refresh: "5m"
+        url: "https://www.blitzortung.org/en/Images/image_b_ca.png"
+        attribution: "Blitzortung.org Contributors / CC BY-SA 4.0"
+        refresh: "2m"
         width: 1
         height: 1
       - id: "sw-precipitation"
@@ -505,10 +505,13 @@ regions:
         freshness:
           warning_after: "10m"
           expire_after: "30m"
-      - id: "mw-clock"
-        type: "clock"
-        title: "Central Time"
-        timezone: "America/Chicago"
+      - id: "mw-video-1"
+        type: "camera"
+        title: "Kansas City Video 1 - Downtown Skyline"
+        url: "https://www.youtube.com/watch?v=9fzUjSTK5F8"
+        autoplay: true
+        muted: true
+        controls: true
         width: 1
         height: 1
       - id: "mw-weather"
@@ -523,9 +526,9 @@ regions:
       - id: "mw-lightning"
         type: "image"
         title: "Midwest Lightning"
-        url: "https://cdn.star.nesdis.noaa.gov/GOES19/GLM/SECTOR/umv/EXTENT3/GOES19-UMV-EXTENT3-600x600.gif"
-        attribution: "NOAA / NESDIS / STAR"
-        refresh: "5m"
+        url: "https://www.blitzortung.org/en/Images/image_b_mn.png"
+        attribution: "Blitzortung.org Contributors / CC BY-SA 4.0"
+        refresh: "2m"
         width: 1
         height: 1
       - id: "mw-precipitation"
@@ -536,18 +539,15 @@ regions:
         refresh: "10m"
         width: 1
         height: 1
-      - id: "mw-links"
-        type: "links"
-        title: "Kansas City Sources"
+      - id: "mw-video-2"
+        type: "camera"
+        title: "Kansas City Video 2 - Polar Bear Cam"
+        url: "https://www.youtube.com/watch?v=BSUnBPvX9K4"
+        autoplay: true
+        muted: true
+        controls: true
         width: 1
         height: 1
-        links:
-          - label: "NWS Kansas City"
-            url: "https://www.weather.gov/eax/"
-          - label: "USGS Earthquakes"
-            url: "https://earthquake.usgs.gov/"
-          - label: "NIFC"
-            url: "https://www.nifc.gov/"
       - id: "mw-system"
         type: "system"
         title: "SigWatch Host"
@@ -620,10 +620,13 @@ regions:
         freshness:
           warning_after: "10m"
           expire_after: "30m"
-      - id: "se-clock"
-        type: "clock"
-        title: "Eastern Time"
-        timezone: "America/New_York"
+      - id: "se-video-1"
+        type: "camera"
+        title: "Miami Video 1 - PortMiami"
+        url: "https://www.youtube.com/watch?v=m1R-LmvVt30"
+        autoplay: true
+        muted: true
+        controls: true
         width: 1
         height: 1
       - id: "se-weather"
@@ -638,9 +641,9 @@ regions:
       - id: "se-lightning"
         type: "image"
         title: "Southeast Lightning"
-        url: "https://cdn.star.nesdis.noaa.gov/GOES19/GLM/SECTOR/se/EXTENT3/GOES19-SE-EXTENT3-600x600.gif"
-        attribution: "NOAA / NESDIS / STAR"
-        refresh: "5m"
+        url: "https://www.blitzortung.org/en/Images/image_b_fl.png"
+        attribution: "Blitzortung.org Contributors / CC BY-SA 4.0"
+        refresh: "2m"
         width: 1
         height: 1
       - id: "se-precipitation"
@@ -651,18 +654,15 @@ regions:
         refresh: "10m"
         width: 1
         height: 1
-      - id: "se-links"
-        type: "links"
-        title: "Miami Sources"
+      - id: "se-video-2"
+        type: "camera"
+        title: "Miami Video 2 - Coral City"
+        url: "https://www.youtube.com/watch?v=7i8ARjIeM2k"
+        autoplay: true
+        muted: true
+        controls: true
         width: 1
         height: 1
-        links:
-          - label: "NWS Miami"
-            url: "https://www.weather.gov/mfl/"
-          - label: "USGS Earthquakes"
-            url: "https://earthquake.usgs.gov/"
-          - label: "NIFC"
-            url: "https://www.nifc.gov/"
       - id: "se-coastal"
         type: "coastal"
         title: "Miami Forecast and Tides"
@@ -741,10 +741,13 @@ regions:
         freshness:
           warning_after: "10m"
           expire_after: "30m"
-      - id: "ne-clock"
-        type: "clock"
-        title: "Eastern Time"
-        timezone: "America/New_York"
+      - id: "ne-video-1"
+        type: "camera"
+        title: "New York Video 1 - Times Square North"
+        url: "https://www.youtube.com/watch?v=JQ_jwk_7OVE"
+        autoplay: true
+        muted: true
+        controls: true
         width: 1
         height: 1
       - id: "ne-weather"
@@ -759,9 +762,9 @@ regions:
       - id: "ne-lightning"
         type: "image"
         title: "Northeast Lightning"
-        url: "https://cdn.star.nesdis.noaa.gov/GOES19/GLM/SECTOR/ne/EXTENT3/GOES19-NE-EXTENT3-600x600.gif"
-        attribution: "NOAA / NESDIS / STAR"
-        refresh: "5m"
+        url: "https://www.blitzortung.org/en/Images/image_b_ny.png"
+        attribution: "Blitzortung.org Contributors / CC BY-SA 4.0"
+        refresh: "2m"
         width: 1
         height: 1
       - id: "ne-precipitation"
@@ -772,18 +775,15 @@ regions:
         refresh: "10m"
         width: 1
         height: 1
-      - id: "ne-links"
-        type: "links"
-        title: "New York Sources"
+      - id: "ne-video-2"
+        type: "camera"
+        title: "New York Video 2 - Camera to Camera"
+        url: "https://www.youtube.com/watch?v=VGnFLdQW39A"
+        autoplay: true
+        muted: true
+        controls: true
         width: 1
         height: 1
-        links:
-          - label: "NWS New York"
-            url: "https://www.weather.gov/okx/"
-          - label: "USGS Earthquakes"
-            url: "https://earthquake.usgs.gov/"
-          - label: "NIFC"
-            url: "https://www.nifc.gov/"
       - id: "ne-coastal"
         type: "coastal"
         title: "New York Forecast and Tides"

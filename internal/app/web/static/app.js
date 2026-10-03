@@ -1,6 +1,7 @@
 'use strict';
 
 const state = {config: null, region: null, timers: [], clockTimers: [], refreshing: false};
+const storageKeys = {region: 'sigwatch.region', defaultRegion: 'sigwatch.defaultRegion', theme: 'sigwatch.theme'};
 const $ = selector => document.querySelector(selector);
 const externalTypes = new Set(['image', 'weather', 'earthquake', 'fire', 'coastal', 'system']);
 
@@ -32,17 +33,106 @@ async function init() {
     select.appendChild(option);
   }
 
-  const saved = localStorage.getItem('sigwatch.region');
-  state.region = saved && state.config.regions[saved] ? saved : state.config.default_region;
+  const saved = localStorage.getItem(storageKeys.region);
+  const preferredDefault = localStorage.getItem(storageKeys.defaultRegion);
+  const fallbackRegion = preferredDefault && state.config.regions[preferredDefault]
+    ? preferredDefault
+    : state.config.default_region;
+  state.region = saved && state.config.regions[saved] ? saved : fallbackRegion;
   select.value = state.region;
   select.addEventListener('change', () => {
     state.region = select.value;
-    localStorage.setItem('sigwatch.region', state.region);
+    localStorage.setItem(storageKeys.region, state.region);
     render();
   });
 
+  applyStoredTheme();
+  setupSettings();
   $('#refresh-region').addEventListener('click', refreshCurrentRegion);
   render();
+}
+
+function availableThemes() {
+  const themes = Array.isArray(state.config.themes) ? state.config.themes : [];
+  return themes.length ? themes : [state.config.theme || 'default'];
+}
+
+function themeIsAvailable(theme) {
+  return availableThemes().includes(theme);
+}
+
+function applyTheme(theme, persist = false) {
+  const selected = themeIsAvailable(theme) ? theme : state.config.theme;
+  const stylesheet = $('#theme-stylesheet');
+  if (stylesheet) stylesheet.href = `/themes/${encodeURIComponent(selected)}/theme.css`;
+  document.documentElement.dataset.theme = selected;
+  if (persist) localStorage.setItem(storageKeys.theme, selected);
+  return selected;
+}
+
+function applyStoredTheme() {
+  const savedTheme = localStorage.getItem(storageKeys.theme);
+  if (savedTheme && themeIsAvailable(savedTheme)) {
+    applyTheme(savedTheme);
+    return;
+  }
+  if (savedTheme) localStorage.removeItem(storageKeys.theme);
+  applyTheme(state.config.theme);
+}
+
+function fillSelect(select, entries, selected) {
+  select.innerHTML = '';
+  for (const [value, label] of entries) {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = label;
+    select.appendChild(option);
+  }
+  select.value = selected;
+}
+
+function setupSettings() {
+  const dialog = $('#settings-dialog');
+  const form = $('#settings-form');
+  const themeSelect = $('#settings-theme');
+  const defaultRegionSelect = $('#settings-default-region');
+
+  const open = () => {
+    const selectedTheme = localStorage.getItem(storageKeys.theme);
+    fillSelect(themeSelect, availableThemes().map(theme => [theme, themeLabel(theme)]), themeIsAvailable(selectedTheme) ? selectedTheme : state.config.theme);
+    const preferred = localStorage.getItem(storageKeys.defaultRegion);
+    const selectedRegion = preferred && state.config.regions[preferred] ? preferred : state.region;
+    fillSelect(defaultRegionSelect, Object.entries(state.config.regions).map(([id, region]) => [id, region.label]), selectedRegion);
+    dialog.showModal();
+  };
+
+  $('#settings-button').addEventListener('click', open);
+  $('#settings-close').addEventListener('click', () => dialog.close());
+  $('#settings-cancel').addEventListener('click', () => dialog.close());
+  dialog.addEventListener('click', event => {
+    if (event.target === dialog) dialog.close();
+  });
+
+  form.addEventListener('submit', event => {
+    event.preventDefault();
+    const selectedTheme = applyTheme(themeSelect.value, true);
+    const selectedRegion = defaultRegionSelect.value;
+    if (state.config.regions[selectedRegion]) {
+      localStorage.setItem(storageKeys.defaultRegion, selectedRegion);
+      localStorage.setItem(storageKeys.region, selectedRegion);
+      if (state.region !== selectedRegion) {
+        state.region = selectedRegion;
+        $('#region-select').value = selectedRegion;
+        render();
+      }
+    }
+    $('#settings-note').textContent = `Saved: ${themeLabel(selectedTheme)} · ${state.config.regions[selectedRegion]?.label || selectedRegion}`;
+    dialog.close();
+  });
+}
+
+function themeLabel(theme) {
+  return String(theme || '').replace(/[-_]+/g, ' ').replace(/\b\w/g, char => char.toUpperCase());
 }
 
 function render() {

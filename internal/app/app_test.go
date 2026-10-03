@@ -132,6 +132,48 @@ func TestExpiredWidgetHidesPrimaryData(t *testing.T) {
 	}
 }
 
+func TestDashboardExposesInstalledThemes(t *testing.T) {
+	s, err := New(testConfig(), testLogger(), WithCacheDir(t.TempDir()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rr := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rr, httptest.NewRequest("GET", "/api/dashboard", nil))
+	body := rr.Body.String()
+	for _, theme := range []string{"amber", "default", "light", "midnight"} {
+		if !strings.Contains(body, `"`+theme+`"`) {
+			t.Fatalf("dashboard missing installed theme %q: %s", theme, body)
+		}
+	}
+}
+
+func TestIndexIncludesSettingsPanel(t *testing.T) {
+	s, err := New(testConfig(), testLogger(), WithCacheDir(t.TempDir()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rr := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rr, httptest.NewRequest("GET", "/", nil))
+	body := rr.Body.String()
+	for _, marker := range []string{`id="settings-button"`, `id="settings-dialog"`, `id="settings-theme"`, `id="settings-default-region"`, `id="theme-stylesheet"`} {
+		if !strings.Contains(body, marker) {
+			t.Fatalf("index missing settings marker %s", marker)
+		}
+	}
+}
+
+func TestBundledThemesInstalled(t *testing.T) {
+	for _, theme := range []string{"default", "light", "midnight", "amber"} {
+		t.Run(theme, func(t *testing.T) {
+			cfg := testConfig()
+			cfg.Theme = theme
+			if _, err := New(cfg, testLogger(), WithCacheDir(t.TempDir())); err != nil {
+				t.Fatalf("theme %q failed startup: %v", theme, err)
+			}
+		})
+	}
+}
+
 func TestMissingThemeFailsStartup(t *testing.T) {
 	cfg := testConfig()
 	cfg.Theme = "does-not-exist"

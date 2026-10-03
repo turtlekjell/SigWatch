@@ -5,14 +5,44 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>{{.Title}}</title>
   <link rel="stylesheet" href="/static/base.css">
-  <link rel="stylesheet" href="/themes/{{.Theme}}/theme.css">
+  <link id="theme-stylesheet" rel="stylesheet" href="/themes/{{.Theme}}/theme.css">
 </head>
 <body>
   <header class="topbar">
     <div><strong id="app-title">{{.Title}}</strong><span class="tagline">local situational awareness</span></div>
-    <div class="topbar-right"><span id="overall-health" class="health">Starting…</span><button id="refresh-region" class="refresh-button" type="button" title="Refresh external feeds in the current region">↻ Refresh</button><label for="region-select">Region</label><select id="region-select"></select></div>
+    <div class="topbar-right"><span id="overall-health" class="health">Starting…</span><button id="refresh-region" class="refresh-button" type="button" title="Refresh external feeds in the current region">↻ Refresh</button><button id="settings-button" class="settings-button" type="button" title="Open SigWatch settings">⚙ Settings</button><label for="region-select">Region</label><select id="region-select"></select></div>
   </header>
   <main id="dashboard" class="dashboard" aria-live="polite"></main>
+  <dialog id="settings-dialog" class="settings-dialog" aria-labelledby="settings-title">
+    <form id="settings-form" class="settings-form" method="dialog">
+      <div class="settings-header">
+        <div>
+          <strong id="settings-title">SigWatch Settings</strong>
+          <div class="settings-subtitle">Browser-local preferences for this display.</div>
+        </div>
+        <button id="settings-close" class="settings-close" type="button" aria-label="Close settings">×</button>
+      </div>
+      <div class="settings-body">
+        <label class="settings-field" for="settings-theme">
+          <span>Theme</span>
+          <select id="settings-theme" name="theme"></select>
+          <small>Applies immediately and is remembered by this browser.</small>
+        </label>
+        <label class="settings-field" for="settings-default-region">
+          <span>Default Region</span>
+          <select id="settings-default-region" name="default_region"></select>
+          <small>Sets this browser to the selected region and remembers it for future starts.</small>
+        </label>
+      </div>
+      <div class="settings-footer">
+        <span id="settings-note" class="settings-note">YAML remains the system-wide fallback.</span>
+        <div class="settings-actions">
+          <button id="settings-cancel" type="button" class="secondary-button">Cancel</button>
+          <button type="submit" class="primary-button">Save</button>
+        </div>
+      </div>
+    </form>
+  </dialog>
   <noscript>SigWatch requires JavaScript for independent widget refresh.</noscript>
   <script src="/static/app.js" defer></script>
 </body>
