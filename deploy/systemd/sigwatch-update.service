@@ -1,0 +1,8 @@
+[Unit]
+Description=Run requested SigWatch stable-release update
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/sigwatch-update-runner

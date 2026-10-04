@@ -1,6 +1,6 @@
 'use strict';
 
-const state = {config: null, region: null, timers: [], clockTimers: [], refreshing: false};
+const state = {config: null, region: null, timers: [], clockTimers: [], refreshing: false, updatePoll: null};
 const storageKeys = {region: 'sigwatch.region', defaultRegion: 'sigwatch.defaultRegion', theme: 'sigwatch.theme'};
 const $ = selector => document.querySelector(selector);
 const externalTypes = new Set(['image', 'weather', 'earthquake', 'fire', 'coastal', 'system']);
@@ -104,6 +104,7 @@ function setupSettings() {
     const selectedRegion = preferred && state.config.regions[preferred] ? preferred : state.region;
     fillSelect(defaultRegionSelect, Object.entries(state.config.regions).map(([id, region]) => [id, region.label]), selectedRegion);
     dialog.showModal();
+    refreshUpdateStatus(false);
   };
 
   $('#settings-button').addEventListener('click', open);
@@ -112,6 +113,8 @@ function setupSettings() {
   dialog.addEventListener('click', event => {
     if (event.target === dialog) dialog.close();
   });
+  $('#update-check').addEventListener('click', () => refreshUpdateStatus(true));
+  $('#update-install').addEventListener('click', installLatestUpdate);
 
   form.addEventListener('submit', event => {
     event.preventDefault();
@@ -129,6 +132,120 @@ function setupSettings() {
     $('#settings-note').textContent = `Saved: ${themeLabel(selectedTheme)} · ${state.config.regions[selectedRegion]?.label || selectedRegion}`;
     dialog.close();
   });
+}
+
+
+function setUpdateMessage(message, kind = '') {
+  const status = $('#update-status');
+  status.textContent = message;
+  status.className = `update-status${kind ? ` ${kind}` : ''}`;
+}
+
+function displayUpdateStatus(data, checked = false) {
+  const installed = data.installed_version || 'unknown';
+  $('#update-installed').textContent = `Installed: ${installed}`;
+  const installButton = $('#update-install');
+  installButton.hidden = true;
+  installButton.disabled = false;
+
+  const helper = data.helper || {};
+  if (helper.state === 'requested' || helper.state === 'installing') {
+    setUpdateMessage(helper.message || 'Update in progress…', 'warning');
+    startUpdatePolling();
+    return;
+  }
+  if (helper.state === 'failed') {
+    setUpdateMessage(helper.message || 'The last update failed.', 'error');
+  } else if (helper.state === 'complete') {
+    const version = helper.version ? ` ${helper.version}` : '';
+    setUpdateMessage(`${helper.message || 'Update complete.'}${version}`, 'success');
+  } else if (!checked) {
+    setUpdateMessage(data.install_available ? 'Ready to check for a stable release.' : 'Update installation is available on configured Pi/systemd installs.');
+  }
+
+  if (data.check_error) {
+    setUpdateMessage(`Update check failed: ${data.check_error}`, 'error');
+    return;
+  }
+  if (!checked || !data.latest_version) return;
+  if (data.update_available) {
+    setUpdateMessage(`Stable release ${data.latest_version} is available.`, 'success');
+    if (data.install_available) {
+      installButton.hidden = false;
+      installButton.dataset.version = data.latest_version;
+    } else {
+      setUpdateMessage(`Stable release ${data.latest_version} is available. Install from the command line on this host.`, 'warning');
+    }
+  } else {
+    setUpdateMessage(`Up to date. Latest stable release: ${data.latest_version}.`, 'success');
+  }
+}
+
+async function refreshUpdateStatus(check = false) {
+  const button = $('#update-check');
+  if (check) {
+    button.disabled = true;
+    button.textContent = 'Checking…';
+    setUpdateMessage('Checking GitHub for the latest stable release…');
+  }
+  try {
+    const response = await fetch(`/api/update/status${check ? '?check=1' : ''}`, {cache: 'no-store'});
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    displayUpdateStatus(await response.json(), check);
+  } catch (error) {
+    setUpdateMessage(`Update status unavailable: ${error.message}`, 'error');
+  } finally {
+    if (check) {
+      button.disabled = false;
+      button.textContent = 'Check for Updates';
+    }
+  }
+}
+
+async function installLatestUpdate() {
+  const version = $('#update-install').dataset.version || 'the latest stable release';
+  if (!window.confirm(`Install SigWatch ${version}?\n\nYour existing configuration will be preserved. The dashboard will briefly reconnect while SigWatch restarts.`)) return;
+  $('#update-install').disabled = true;
+  $('#update-check').disabled = true;
+  setUpdateMessage('Update requested. Preparing installation…', 'warning');
+  try {
+    const response = await fetch('/api/update/install', {
+      method: 'POST',
+      headers: {'X-SigWatch-Action': 'install-update'},
+      cache: 'no-store'
+    });
+    if (!response.ok) throw new Error((await response.text()).trim() || `HTTP ${response.status}`);
+    startUpdatePolling();
+  } catch (error) {
+    $('#update-install').disabled = false;
+    $('#update-check').disabled = false;
+    setUpdateMessage(`Could not start update: ${error.message}`, 'error');
+  }
+}
+
+function startUpdatePolling() {
+  if (state.updatePoll) return;
+  state.updatePoll = setInterval(async () => {
+    try {
+      const response = await fetch('/api/update/status', {cache: 'no-store'});
+      if (!response.ok) return;
+      const data = await response.json();
+      const helper = data.helper || {};
+      displayUpdateStatus(data, false);
+      if (helper.state === 'complete') {
+        clearInterval(state.updatePoll);
+        state.updatePoll = null;
+        setUpdateMessage(`${helper.message || 'Update complete.'} Reloading…`, 'success');
+        setTimeout(() => window.location.reload(), 1200);
+      } else if (helper.state === 'failed') {
+        clearInterval(state.updatePoll);
+        state.updatePoll = null;
+        $('#update-check').disabled = false;
+      }
+    } catch (_) {
+      // Expected briefly while sigwatch.service restarts. Keep polling.
+    }
+  }, 2000);
 }
 
 function themeLabel(theme) {

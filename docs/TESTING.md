@@ -121,7 +121,7 @@ file dist/sigwatch-linux-arm64 dist/sigwatch-linux-amd64
 
 On the Pi:
 
-1. Build SigWatch from a clean clone.
+1. Build SigWatch from a clean clone with `make build` and confirm `./sigwatch -version` matches `VERSION`.
 2. Validate `config.yaml`.
 3. Install with `sudo ./scripts/install-pi.sh ./sigwatch ./config.yaml`.
 4. Confirm `systemctl status sigwatch --no-pager` reports the service active.
@@ -132,6 +132,31 @@ On the Pi:
 9. Reboot without Internet and confirm SigWatch starts rather than crashing.
 
 Automatic Chromium launch is optional for the v1 baseline and can be documented separately after a preferred Bookworm desktop-session method is settled.
+
+### Pi update helper
+
+After a tagged test release is available:
+
+1. Run `sigwatch-update --check` and confirm the installed/target versions are reported without modification.
+2. Run `sudo sigwatch-update --version <test-version>`.
+3. Confirm `/etc/sigwatch/config.yaml` is byte-for-byte unchanged.
+4. Confirm the new binary reports the expected version with `/opt/sigwatch/sigwatch -version`.
+5. Confirm `sigwatch.service` is active and `/healthz` succeeds.
+6. Test an intentionally invalid/incompatible config in a disposable environment and confirm the updater stops before replacing the installed binary.
+7. Test a failed health check in a disposable environment and confirm rollback restores the previous binary.
+
+### Settings-page updater
+
+On a disposable/test Pi install:
+
+1. Open **Settings → Software Update** and confirm the running version is displayed.
+2. Select **Check for Updates** and confirm only stable `vX.Y.Z` tags are considered.
+3. Confirm the Install button is hidden when no newer stable release exists.
+4. With a newer test tag available, confirm Install requests the update and the browser survives/reconnects across the service restart.
+5. Confirm `/etc/sigwatch/config.yaml` remains unchanged.
+6. Confirm `/var/lib/sigwatch/update/status.json` reaches `complete` on success.
+7. Confirm a forced failure reports `failed` and the rollback behavior from the command-line updater still restores the previous binary.
+8. Confirm a desktop run without `-update-dir` can check releases but cannot request a privileged install.
 
 ## 11. GitHub CI
 

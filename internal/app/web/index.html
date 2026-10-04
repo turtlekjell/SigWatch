@@ -33,6 +33,20 @@
           <select id="settings-default-region" name="default_region"></select>
           <small>Sets this browser to the selected region and remembers it for future starts.</small>
         </label>
+        <section class="settings-update" aria-labelledby="settings-update-title">
+          <div class="settings-update-heading">
+            <div>
+              <strong id="settings-update-title">Software Update</strong>
+              <small>Checks the official TurtleKjell/SigWatch stable release tags.</small>
+            </div>
+            <span id="update-installed" class="version-pill">Installed: …</span>
+          </div>
+          <div id="update-status" class="update-status" role="status">Not checked yet.</div>
+          <div class="settings-update-actions">
+            <button id="update-check" type="button" class="secondary-button">Check for Updates</button>
+            <button id="update-install" type="button" class="primary-button" hidden>Install Update</button>
+          </div>
+        </section>
       </div>
       <div class="settings-footer">
         <span id="settings-note" class="settings-note">YAML remains the system-wide fallback.</span>

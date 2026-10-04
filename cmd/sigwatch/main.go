@@ -20,6 +20,7 @@ var version = "dev"
 func main() {
 	configPath := flag.String("config", "config.yaml", "path to YAML configuration")
 	cacheDir := flag.String("cache-dir", "", "persistent cache directory (default: platform user cache directory)")
+	updateDir := flag.String("update-dir", "", "directory used by the optional privileged update helper")
 	check := flag.Bool("check", false, "validate configuration and exit")
 	showVersion := flag.Bool("version", false, "print version and exit")
 	flag.Parse()
@@ -37,7 +38,7 @@ func main() {
 		return
 	}
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
-	srv, err := app.New(cfg, logger, app.WithCacheDir(*cacheDir))
+	srv, err := app.New(cfg, logger, app.WithCacheDir(*cacheDir), app.WithVersion(version), app.WithUpdateDir(*updateDir))
 	if err != nil {
 		logger.Error("startup failed", "error", err)
 		os.Exit(1)

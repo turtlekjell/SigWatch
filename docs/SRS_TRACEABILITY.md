@@ -34,3 +34,8 @@ Status meanings: **Implemented** = present in source and testable now; **Partial
 | LIC-001/003–007 | Partial | Clean implementation; user-configured sources remain subject to their terms. Third-party dependency count is zero. |
 | LIC-002 project license | Implemented | Repository ships under the MIT License. |
 | NFR-001–012 | Implemented/Partial | Core separation, no Node/database, tests and journald-friendly stdout logging are present; long-duration/Pi performance requires real-world testing. |
+
+
+## Post-MVP convenience added during v1 release candidate
+
+The Settings panel now exposes browser-local Theme/Default Region preferences and an optional Pi/systemd stable-release update control. The updater preserves localhost-only operation and does not expose arbitrary shell execution through HTTP. Full widget/region graphical editing remains deferred.

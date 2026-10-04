@@ -13,7 +13,10 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -42,17 +45,21 @@ type widgetState struct {
 }
 
 type Server struct {
-	cfg      *config.Config
-	logger   *slog.Logger
-	provider provider.Provider
-	cache    *cache.Store
-	states   map[string]*widgetState
-	started  time.Time
-	tmpl     *template.Template
+	cfg       *config.Config
+	logger    *slog.Logger
+	provider  provider.Provider
+	cache     *cache.Store
+	states    map[string]*widgetState
+	started   time.Time
+	tmpl      *template.Template
+	version   string
+	updateDir string
 }
 
 type options struct {
-	cacheDir string
+	cacheDir  string
+	version   string
+	updateDir string
 }
 
 type Option func(*options)
@@ -65,6 +72,17 @@ func WithCacheDir(dir string) Option {
 			o.cacheDir = dir
 		}
 	}
+}
+
+// WithVersion exposes the build version to the local settings/update UI.
+func WithVersion(version string) Option {
+	return func(o *options) { o.version = version }
+}
+
+// WithUpdateDir enables the optional systemd-mediated update request channel.
+// Leaving it empty keeps installation from the web UI disabled.
+func WithUpdateDir(dir string) Option {
+	return func(o *options) { o.updateDir = dir }
 }
 
 func New(cfg *config.Config, logger *slog.Logger, opts ...Option) (*Server, error) {
@@ -97,7 +115,7 @@ func New(cfg *config.Config, logger *slog.Logger, opts ...Option) (*Server, erro
 		}
 	}
 
-	s := &Server{cfg: cfg, logger: logger, provider: provider.NewHTTP(12 * time.Second), cache: diskCache, states: map[string]*widgetState{}, started: time.Now(), tmpl: t}
+	s := &Server{cfg: cfg, logger: logger, provider: provider.NewHTTP(12 * time.Second), cache: diskCache, states: map[string]*widgetState{}, started: time.Now(), tmpl: t, version: o.version, updateDir: o.updateDir}
 	for rn, r := range cfg.Regions {
 		for _, w := range r.Widgets {
 			if !isExternal(w.Type) {
@@ -293,6 +311,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/dashboard", s.handleDashboard)
 	mux.HandleFunc("/api/widget/", s.handleWidget)
 	mux.HandleFunc("/api/region/", s.handleRegionAction)
+	mux.HandleFunc("/api/update/status", s.handleUpdateStatus)
+	mux.HandleFunc("/api/update/install", s.handleUpdateInstall)
 	mux.HandleFunc("/healthz", s.handleHealth)
 	return securityHeaders(mux)
 }
@@ -531,6 +551,175 @@ func (s *Server) handleRegionAction(w http.ResponseWriter, r *http.Request) {
 	}
 	wg.Wait()
 	writeJSON(w, map[string]any{"status": "ok", "region": regionName, "refreshed": count})
+}
+
+var stableVersionRE = regexp.MustCompile(`^v?([0-9]+)\.([0-9]+)\.([0-9]+)$`)
+
+type semVersion struct{ major, minor, patch int }
+
+func parseStableVersion(raw string) (semVersion, bool) {
+	m := stableVersionRE.FindStringSubmatch(strings.TrimSpace(raw))
+	if m == nil {
+		return semVersion{}, false
+	}
+	major, e1 := strconv.Atoi(m[1])
+	minor, e2 := strconv.Atoi(m[2])
+	patch, e3 := strconv.Atoi(m[3])
+	if e1 != nil || e2 != nil || e3 != nil {
+		return semVersion{}, false
+	}
+	return semVersion{major, minor, patch}, true
+}
+
+func versionGreater(a, b string) bool {
+	av, aok := parseStableVersion(a)
+	bv, bok := parseStableVersion(b)
+	if !aok || !bok {
+		return false
+	}
+	if av.major != bv.major {
+		return av.major > bv.major
+	}
+	if av.minor != bv.minor {
+		return av.minor > bv.minor
+	}
+	return av.patch > bv.patch
+}
+
+type updateHelperStatus struct {
+	State     string `json:"state,omitempty"`
+	Message   string `json:"message,omitempty"`
+	Version   string `json:"version,omitempty"`
+	UpdatedAt string `json:"updated_at,omitempty"`
+}
+
+func (s *Server) readUpdateHelperStatus() updateHelperStatus {
+	if s.updateDir == "" {
+		return updateHelperStatus{}
+	}
+	b, err := os.ReadFile(filepath.Join(s.updateDir, "status.json"))
+	if err != nil {
+		return updateHelperStatus{}
+	}
+	var status updateHelperStatus
+	if json.Unmarshal(b, &status) != nil {
+		return updateHelperStatus{}
+	}
+	return status
+}
+
+func latestStableGitHubVersion(ctx context.Context) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.github.com/repos/TurtleKjell/SigWatch/tags?per_page=100", nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("User-Agent", "SigWatch-update-check")
+	client := &http.Client{Timeout: 8 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("GitHub tags: HTTP %d", resp.StatusCode)
+	}
+	var tags []struct {
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&tags); err != nil {
+		return "", err
+	}
+	latest := ""
+	for _, tag := range tags {
+		name := strings.TrimPrefix(tag.Name, "v")
+		if _, ok := parseStableVersion(name); !ok {
+			continue
+		}
+		if latest == "" || versionGreater(name, latest) {
+			latest = name
+		}
+	}
+	if latest == "" {
+		return "", fmt.Errorf("no stable vX.Y.Z tags found")
+	}
+	return latest, nil
+}
+
+func (s *Server) updateInstallAvailable() bool {
+	if s.updateDir == "" {
+		return false
+	}
+	info, err := os.Stat(s.updateDir)
+	return err == nil && info.IsDir()
+}
+
+func (s *Server) handleUpdateStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	installed := strings.TrimSpace(s.version)
+	if installed == "" {
+		installed = "dev"
+	}
+	response := map[string]any{
+		"installed_version": installed,
+		"install_available": s.updateInstallAvailable(),
+		"helper":            s.readUpdateHelperStatus(),
+	}
+	if r.URL.Query().Get("check") == "1" {
+		latest, err := latestStableGitHubVersion(r.Context())
+		if err != nil {
+			response["check_error"] = err.Error()
+		} else {
+			response["latest_version"] = latest
+			response["update_available"] = versionGreater(latest, installed)
+		}
+	}
+	writeJSON(w, response)
+}
+
+func (s *Server) handleUpdateInstall(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if r.Header.Get("X-SigWatch-Action") != "install-update" {
+		http.Error(w, "missing update action header", http.StatusForbidden)
+		return
+	}
+	if s.updateDir == "" {
+		http.Error(w, "web updater is not installed on this host", http.StatusServiceUnavailable)
+		return
+	}
+	if status := s.readUpdateHelperStatus(); status.State == "requested" || status.State == "installing" {
+		http.Error(w, "an update is already in progress", http.StatusConflict)
+		return
+	}
+	if err := os.MkdirAll(s.updateDir, 0755); err != nil {
+		http.Error(w, "update request directory unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	status := updateHelperStatus{State: "requested", Message: "Update requested", UpdatedAt: time.Now().UTC().Format(time.RFC3339)}
+	b, _ := json.Marshal(status)
+	if err := os.WriteFile(filepath.Join(s.updateDir, "status.json"), append(b, '\n'), 0644); err != nil {
+		http.Error(w, "cannot write update status", http.StatusServiceUnavailable)
+		return
+	}
+	tmp := filepath.Join(s.updateDir, ".request.tmp")
+	request := filepath.Join(s.updateDir, "request")
+	if err := os.WriteFile(tmp, []byte("install\n"), 0644); err != nil {
+		http.Error(w, "cannot queue update request", http.StatusServiceUnavailable)
+		return
+	}
+	if err := os.Rename(tmp, request); err != nil {
+		http.Error(w, "cannot queue update request", http.StatusServiceUnavailable)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusAccepted)
+	_ = json.NewEncoder(w).Encode(map[string]any{"status": "queued"})
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {

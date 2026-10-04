@@ -21,7 +21,7 @@ SigWatch uses a Go backend with server-embedded HTML/CSS/vanilla JavaScript, hum
 - Region-level manual refresh.
 - Click-to-enlarge support for eligible image content.
 - Four bundled themes: `default`, `light`, `midnight`, and `amber`.
-- Header Settings panel for browser-local Theme and Default Region preferences.
+- Header Settings panel for browser-local Theme and Default Region preferences plus stable-release update checking/install on supported Pi/systemd installs.
 - systemd service and Raspberry Pi install helper.
 - Linux ARM64/AMD64 and developer cross-build targets.
 - Unit tests and GitHub CI.
@@ -181,7 +181,7 @@ On the Pi, clone the repository and build:
 ```bash
 git clone https://github.com/TurtleKjell/SigWatch.git
 cd SigWatch
-go build -o sigwatch ./cmd/sigwatch
+make build
 ./sigwatch -config ./config.yaml -check
 ```
 
@@ -191,7 +191,7 @@ Install and enable the service:
 sudo ./scripts/install-pi.sh ./sigwatch ./config.yaml
 ```
 
-The installer places the application under `/opt/sigwatch`, the configuration under `/etc/sigwatch`, the persistent cache under `/var/lib/sigwatch`, and enables `sigwatch.service` so the backend starts after reboot.
+The installer places the application under `/opt/sigwatch`, the configuration under `/etc/sigwatch`, the persistent cache under `/var/lib/sigwatch`, installs `/usr/local/sbin/sigwatch-update`, and enables `sigwatch.service` so the backend starts after reboot.
 
 Check it with:
 
@@ -207,6 +207,19 @@ chromium --kiosk http://127.0.0.1:8080/
 ```
 
 Browser autostart is intentionally left as an optional deployment choice because Raspberry Pi desktop/session behavior can vary. A prototype desktop entry remains under `deploy/kiosk/` for users who want to adapt it.
+
+### Updating an installed Pi
+
+On an installation made with `scripts/install-pi.sh`, open **⚙ Settings → Software Update** and choose **Check for Updates**. When a newer stable `vX.Y.Z` release exists, **Install Update** requests the same rollback-capable updater used by the command line. The browser reconnects after `sigwatch.service` restarts.
+
+The command-line equivalents remain available:
+
+```bash
+sigwatch-update --check
+sudo sigwatch-update
+```
+
+The web UI cannot provide arbitrary commands, repository URLs, or version strings. It can only request the latest stable release. A root-owned systemd path/service performs the privileged install while the SigWatch web process remains unprivileged. The updater validates the existing `/etc/sigwatch/config.yaml`, backs up the current binary, restarts the service, checks `/healthz`, and rolls back automatically if the new service does not become healthy. It does **not** overwrite the user's configuration. See [`docs/UPDATING.md`](docs/UPDATING.md).
 
 ## Build targets
 

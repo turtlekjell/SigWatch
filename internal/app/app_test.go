@@ -6,6 +6,8 @@ import (
 	"io"
 	"log/slog"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -155,7 +157,7 @@ func TestIndexIncludesSettingsPanel(t *testing.T) {
 	rr := httptest.NewRecorder()
 	s.Handler().ServeHTTP(rr, httptest.NewRequest("GET", "/", nil))
 	body := rr.Body.String()
-	for _, marker := range []string{`id="settings-button"`, `id="settings-dialog"`, `id="settings-theme"`, `id="settings-default-region"`, `id="theme-stylesheet"`} {
+	for _, marker := range []string{`id="settings-button"`, `id="settings-dialog"`, `id="settings-theme"`, `id="settings-default-region"`, `id="update-check"`, `id="update-install"`, `id="theme-stylesheet"`} {
 		if !strings.Contains(body, marker) {
 			t.Fatalf("index missing settings marker %s", marker)
 		}
@@ -321,5 +323,73 @@ func TestDashboardExposesViewportLayout(t *testing.T) {
 	body := rr.Body.String()
 	if !strings.Contains(body, `"layout":"viewport"`) || !strings.Contains(body, `"columns":4`) || !strings.Contains(body, `"rows":2`) {
 		t.Fatalf("dashboard missing viewport layout metadata: %s", body)
+	}
+}
+
+func TestUpdateStatusReportsBuildVersion(t *testing.T) {
+	s, err := New(testConfig(), testLogger(), WithCacheDir(t.TempDir()), WithVersion("0.1.20"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rr := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rr, httptest.NewRequest("GET", "/api/update/status", nil))
+	if rr.Code != 200 {
+		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), `"installed_version":"0.1.20"`) {
+		t.Fatalf("update status missing build version: %s", rr.Body.String())
+	}
+}
+
+func TestUpdateInstallRequiresActionHeader(t *testing.T) {
+	dir := t.TempDir()
+	s, err := New(testConfig(), testLogger(), WithCacheDir(t.TempDir()), WithVersion("0.1.20"), WithUpdateDir(dir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rr := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rr, httptest.NewRequest("POST", "/api/update/install", nil))
+	if rr.Code != 403 {
+		t.Fatalf("status=%d want 403", rr.Code)
+	}
+}
+
+func TestUpdateInstallQueuesFixedRequest(t *testing.T) {
+	dir := t.TempDir()
+	s, err := New(testConfig(), testLogger(), WithCacheDir(t.TempDir()), WithVersion("0.1.20"), WithUpdateDir(dir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/update/install", strings.NewReader(`{"version":"evil","url":"https://example.invalid"}`))
+	req.Header.Set("X-SigWatch-Action", "install-update")
+	s.Handler().ServeHTTP(rr, req)
+	if rr.Code != 202 {
+		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	b, err := os.ReadFile(filepath.Join(dir, "request"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(b) != "install\n" {
+		t.Fatalf("request=%q want fixed install action", string(b))
+	}
+}
+
+func TestStableVersionComparison(t *testing.T) {
+	cases := []struct {
+		a, b string
+		want bool
+	}{
+		{"1.0.0", "0.1.20", true},
+		{"1.0.1", "1.0.0", true},
+		{"1.0.0", "1.0.0", false},
+		{"0.9.9", "1.0.0", false},
+		{"dev", "1.0.0", false},
+	}
+	for _, tc := range cases {
+		if got := versionGreater(tc.a, tc.b); got != tc.want {
+			t.Fatalf("versionGreater(%q,%q)=%v want %v", tc.a, tc.b, got, tc.want)
+		}
 	}
 }

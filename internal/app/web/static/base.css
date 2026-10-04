@@ -94,3 +94,9 @@
 .settings-footer{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 18px;border-top:1px solid var(--border)}
 .settings-note{color:var(--muted);font-size:.75rem}.settings-actions{display:flex;gap:8px}.secondary-button,.primary-button{padding:7px 12px}.primary-button{background:var(--accent);color:var(--bg);border-color:var(--accent);font-weight:750}
 @media(max-width:700px){.health{display:none}.topbar-right{gap:6px}.settings-button{padding:6px 8px}.settings-footer{align-items:flex-end;flex-direction:column}.settings-note{align-self:flex-start}}
+
+.settings-update{display:grid;gap:11px;padding-top:4px;border-top:1px solid var(--border)}
+.settings-update-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding-top:14px}.settings-update-heading>div{display:grid;gap:3px}.settings-update-heading small{color:var(--muted);line-height:1.35}
+.version-pill{white-space:nowrap;border:1px solid var(--border);border-radius:999px;padding:4px 8px;color:var(--muted);font-size:.72rem}
+.update-status{min-height:1.4em;color:var(--muted);font-size:.82rem;line-height:1.4}.update-status.success{color:var(--accent)}.update-status.warning{color:var(--warning)}.update-status.error{color:var(--danger)}
+.settings-update-actions{display:flex;gap:8px;flex-wrap:wrap}.settings-update-actions button:disabled{opacity:.55;cursor:not-allowed}
